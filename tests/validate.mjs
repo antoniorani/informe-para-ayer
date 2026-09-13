@@ -14,6 +14,12 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const course = JSON.parse(fs.readFileSync(path.join(root, 'data', 'case.json'), 'utf8'));
 
+// Estructura web y versión del caso.
+assert.equal(course.meta.version, '1.2');
+for (const rel of ['index.html', 'assets/styles.css', 'js/app.js', 'js/validators.js', 'js/semantic.js', 'data/case.json']) {
+  assert.ok(fs.existsSync(path.join(root, rel)), `Falta el recurso ${rel}.`);
+}
+
 // Pruebas de utilidades.
 assert.equal(countWords(' uno  dos\n tres '), 3);
 assert.equal(normalize('Información   ÚTIL'), 'informacion util');
@@ -24,6 +30,14 @@ const textCheck = validateTextResponse('Resumen: correcto. Fuentes: [D1]', {
   citations: true
 });
 assert.ok(textCheck.results.every(item => item.ok));
+
+
+// Bloque 2: debe contener un prompt deliberadamente arriesgado, uno reforzado y señales auditables.
+const b2 = course.blocks['2'];
+assert.ok(b2.riskyPrompt && b2.safePrompt, 'Bloque 2: faltan los dos prompts A/B.');
+assert.ok((b2.behaviorOptions || []).length >= 3, 'Bloque 2: faltan opciones para registrar el comportamiento del modelo.');
+assert.ok((b2.riskSignals || []).filter(item => item.risky).length >= 3, 'Bloque 2: faltan señales de riesgo suficientes.');
+assert.ok((b2.riskSignals || []).some(item => !item.risky), 'Bloque 2: debe haber controles que no sean señales de riesgo para evitar marcar todo.');
 
 // Validación JSON: contenido correcto, tipos correctos, sin campos extra.
 const b5 = course.blocks['5'];
@@ -59,7 +73,11 @@ for (const [blockId, block] of Object.entries(course.blocks)) {
     assert.ok(docs.has(fragment.doc), `Bloque ${blockId}: fragmento ${fragment.id} apunta a documento inexistente.`);
   }
   assert.ok((block.debrief || []).length >= 3, `Bloque ${blockId}: faltan preguntas de puesta en común.`);
+  assert.ok(block.duration, `Bloque ${blockId}: falta duración orientativa.`);
 }
+
+const b6 = course.blocks['6'];
+for (const docId of b6.neutralDocs || []) assert.ok(docs.has(docId), `Bloque 6: neutralDoc inexistente ${docId}.`);
 
 const d9 = course.documents.find(doc => doc.id === 'D9');
 assert.ok(d9.content.includes(course.blocks['4'].injectionSnippet), 'La inyección del bloque 4 no coincide con D9.');

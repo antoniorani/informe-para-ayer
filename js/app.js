@@ -8,7 +8,7 @@ import {
 } from "./validators.js";
 import { rankFragments } from "./semantic.js";
 
-const STORAGE_KEY = "informe-para-ayer-v1";
+const STORAGE_KEY = "informe-para-ayer-v1.2";
 const BLOCK_MAX = { 1: 180, 2: 220, 3: 180, 4: 140, 5: 140, 6: 140 };
 const BLOCK_SHORT = {
   1: "Prompting",
@@ -30,7 +30,7 @@ const defaultState = () => ({
   scores: {},
   answers: {
     b1: { initial: "", improved: "", components: [], checklist: [] },
-    b2: { llm: "", claims: {} },
+    b2: { risky: "", safe: "", behavior: "", riskFlags: [], claims: {} },
     b3: { selected: [], llm: "" },
     b4: { vulnerable: "", hardened: "", choice: "" },
     b5: { prompt: "", llm: "", attempts: 0, lastValidation: null },
@@ -206,11 +206,11 @@ function blockHero(n) {
   const b = course.blocks[String(n)];
   return `
     <section class="panel hero-panel">
-      <span class="eyebrow">BLOQUE ${n} · ${escapeHTML(BLOCK_SHORT[n])}</span>
+      <div class="hero-meta"><span class="eyebrow">BLOQUE ${n} · ${escapeHTML(BLOCK_SHORT[n])}</span>${b.duration ? `<span class="duration-chip">⏱ ${escapeHTML(b.duration)}</span>` : ""}</div>
       <h1>${escapeHTML(b.title)}</h1>
       <p class="lead">${escapeHTML(b.tagline)}</p>
       <div class="manager-note">“${escapeHTML(b.managerMessage)}”</div>
-      ${state.completed.includes(n) ? `<div class="callout success"><strong>Bloque completado · ${state.scores[n]}/${BLOCK_MAX[n]} puntos</strong>Puedes revisar lo que hiciste o continuar cuando el grupo termine la puesta en común.</div>` : ""}
+      ${state.completed.includes(n) ? `<div class="callout success"><strong>Bloque completado · ${state.scores[n]}/${BLOCK_MAX[n]} puntos</strong>El bloque queda bloqueado para conservar la corrección. Puedes revisar tus respuestas y continuar cuando el grupo termine la puesta en común.</div>` : ""}
     </section>`;
 }
 
@@ -232,18 +232,18 @@ function formatDocs(ids) {
   }).join("\n\n---\n\n");
 }
 
-function promptBox(id, content, { editable = false, label = "Prompt para tu LLM" } = {}) {
+function promptBox(id, content, { editable = false, label = "Prompt para tu LLM", readOnly = false } = {}) {
   return `
     <div class="prompt-box">
       <div class="prompt-toolbar"><span>${escapeHTML(label)}</span><button class="ghost copy-btn" data-copy-source="${id}" type="button">Copiar</button></div>
       ${editable
-        ? `<textarea class="prompt-input" id="${id}" spellcheck="false">${escapeHTML(content)}</textarea>`
+        ? `<textarea class="prompt-input" id="${id}" spellcheck="false" ${readOnly ? "readonly" : ""}>${escapeHTML(content)}</textarea>`
         : `<pre class="prompt-content" id="${id}">${escapeHTML(content)}</pre>`}
     </div>`;
 }
 
-function answerBox(id, value, placeholder = "Pega aquí la respuesta obtenida en tu LLM…") {
-  return `<textarea id="${id}" class="answer-area" placeholder="${escapeHTML(placeholder)}">${escapeHTML(value || "")}</textarea><div class="counter" id="${id}-counter">${countWords(value || "")} palabras</div>`;
+function answerBox(id, value, placeholder = "Pega aquí la respuesta obtenida en tu LLM…", readOnly = false) {
+  return `<textarea id="${id}" class="answer-area" placeholder="${escapeHTML(placeholder)}" ${readOnly ? "readonly" : ""}>${escapeHTML(value || "")}</textarea><div class="counter" id="${id}-counter">${countWords(value || "")} palabras</div>`;
 }
 
 async function copyText(text) {
@@ -296,7 +296,7 @@ function debriefPanel(n) {
       <p class="subtle">No busques una única respuesta correcta del modelo. Interesa comparar qué decisiones habéis tomado y qué problemas habéis observado.</p>
       <ul>${b.debrief.map(q => `<li>${escapeHTML(q)}</li>`).join("")}</ul>
       <div class="btn-row">
-        ${n < 6 ? `<button class="primary" id="next-block">Continuar al bloque ${n + 1} →</button>` : `<button class="secondary" id="export-progress">Exportar mi resultado</button>`}
+        ${n < 6 ? `<button class="primary" id="next-block">Continuar cuando lo indique el docente →</button>` : `<button class="secondary" id="export-progress">Exportar mi resultado</button>`}
       </div>
     </section>`;
 }
@@ -324,19 +324,21 @@ function renderBlock1() {
     ${blockHero(1)}
     <section class="panel">
       <div class="step-row"><span class="step-badge">1</span><div><h3>Prueba una petición deliberadamente mala</h3><p>Usa exactamente este prompt en tu LLM. Queremos una línea base imperfecta.</p></div></div>
+      <div class="callout"><strong>Para que la comparación sea limpia</strong>Usa el mismo LLM en el primer y el segundo intento. Si cambias de modelo, ya no sabremos si mejoró el prompt o cambió el cocinero.</div>
       ${docsCards(b.requiredDocs, true)}
       ${promptBox("b1-initial-prompt", initialFullPrompt)}
-      ${answerBox("b1-initial-answer", a.initial)}
+      ${answerBox("b1-initial-answer", a.initial, "Pega aquí la primera respuesta de tu LLM…", complete)}
+      <p class="mini-title section-kicker">Autoevaluación de la primera respuesta · no puntúa</p>
       <div class="check-grid">
-        ${b.checklist.map((item, i) => `<label class="check-card"><input type="checkbox" data-b1-check="${i}" ${a.checklist.includes(i) ? "checked" : ""}><span>${escapeHTML(item)}</span></label>`).join("")}
+        ${b.checklist.map((item, i) => `<label class="check-card"><input type="checkbox" data-b1-check="${i}" ${a.checklist.includes(i) ? "checked" : ""} ${complete ? "disabled" : ""}><span>${escapeHTML(item)}</span></label>`).join("")}
       </div>
 
       <div class="step-row"><span class="step-badge">2</span><div><h3>Convierte la petición en una especificación</h3><p>Selecciona qué elementos añadirías. La web construirá el prompt; tú comprobarás el efecto en el LLM.</p></div></div>
       <div class="check-grid">
-        ${b.promptComponents.map(c => `<label class="check-card component-card"><input type="checkbox" data-b1-component="${c.id}" ${a.components.includes(c.id) ? "checked" : ""}><span><strong>${escapeHTML(c.label)}</strong><br>${escapeHTML(c.text)}</span><span class="component-points">+${c.points}</span></label>`).join("")}
+        ${b.promptComponents.map(c => `<label class="check-card component-card"><input type="checkbox" data-b1-component="${c.id}" ${a.components.includes(c.id) ? "checked" : ""} ${complete ? "disabled" : ""}><span><strong>${escapeHTML(c.label)}</strong><br>${escapeHTML(c.text)}</span></label>`).join("")}
       </div>
       ${promptBox("b1-improved-prompt", improved)}
-      ${answerBox("b1-improved-answer", a.improved)}
+      ${answerBox("b1-improved-answer", a.improved, "Pega aquí la segunda respuesta de tu LLM…", complete)}
 
       <div class="callout ${validation.passed === validation.total && a.improved ? "success" : ""}">
         <strong>Comprobación mecánica de la segunda respuesta</strong>
@@ -396,26 +398,72 @@ function buildBlock1Prompt() {
 function renderBlock2() {
   const b = course.blocks["2"];
   const a = state.answers.b2;
-  const fullPrompt = `${b.llmPrompt}\n\n<FUENTES>\n${formatDocs(b.requiredDocs)}\n</FUENTES>`;
+  const riskyPrompt = `${b.riskyPrompt}\n\n<FUENTES>\n${formatDocs(b.requiredDocs)}\n</FUENTES>`;
+  const safePrompt = `${b.safePrompt}\n\n<FUENTES>\n${formatDocs(b.requiredDocs)}\n</FUENTES>`;
   const complete = state.completed.includes(2);
+  const riskItems = b.riskSignals.map(item => ({ id: item.id, relevant: item.risky }));
+  const riskSelection = scoreSelections(a.riskFlags, riskItems);
+  const riskF1 = riskSelection.precision + riskSelection.recall
+    ? 2 * riskSelection.precision * riskSelection.recall / (riskSelection.precision + riskSelection.recall)
+    : 0;
+
+  const behaviorMessage = !a.behavior ? "" : a.behavior === "resisted"
+    ? `<div class="callout success"><strong>Tu modelo ha sido prudente</strong>Perfecto: no necesitamos que el modelo falle para aprender. Ahora analiza por qué el encargo seguía siendo peligroso. Un modelo distinto, otra versión o un contexto diferente podría obedecer la presión del prompt.</div>`
+    : a.behavior === "invented"
+      ? `<div class="callout warning"><strong>Ya tienes un caso de afirmación no respaldada</strong>No te centres solo en culpar al modelo: parte del problema está en un encargo que le exige completar huecos y ocultar la incertidumbre.</div>`
+      : `<div class="callout warning"><strong>Comportamiento mixto</strong>Es un caso muy realista: el modelo puede ser prudente en unos apartados y extrapolar demasiado en otros. Hay que auditar afirmación por afirmación.</div>`;
+
   document.querySelector("#main").innerHTML = `
     ${blockHero(2)}
     <section class="panel">
-      <div class="step-row"><span class="step-badge">1</span><div><h3>Pregunta primero a tu LLM</h3><p>Pega la respuesta aunque no estés de acuerdo con ella. Luego la auditaremos.</p></div></div>
-      ${promptBox("b2-prompt", fullPrompt)}
-      ${answerBox("b2-answer", a.llm)}
+      <div class="step-row"><span class="step-badge">1</span><div><h3>Ejecuta el encargo tal como ha llegado</h3><p>No lo corrijas todavía. El prompt contiene presión para dar respuestas cerradas incluso cuando faltan datos.</p></div></div>
+      <div class="callout"><strong>Usa el mismo LLM en los dos intentos</strong>Así podrás comparar el efecto del prompt y no el cambio de modelo.</div>
+      ${promptBox("b2-risky-prompt", riskyPrompt, { label: "Prompt problemático · cópialo sin modificar" })}
+      ${answerBox("b2-risky-answer", a.risky, "Pega aquí la primera respuesta de tu LLM…", complete)}
 
-      <div class="step-row"><span class="step-badge">2</span><div><h3>Audita afirmaciones concretas</h3><p>Clasifica cada una mirando el expediente, no por lo convincente que suene.</p></div></div>
+      <div class="step-row"><span class="step-badge">2</span><div><h3>¿Qué hizo tu modelo?</h3><p>No hay una opción «buena» para puntuar. Solo queremos registrar lo que ocurrió.</p></div></div>
+      <div class="check-grid">
+        ${b.behaviorOptions.map(option => `<button class="check-card choice ${a.behavior === option.id ? "selected" : ""}" data-b2-behavior="${option.id}" type="button" ${complete ? "disabled" : ""}>${escapeHTML(option.label)}</button>`).join("")}
+      </div>
+      ${behaviorMessage}
+
+      <div class="step-row"><span class="step-badge">3</span><div><h3>Audita ahora el prompt</h3><p>Marca las instrucciones que aumentan el riesgo de producir afirmaciones no respaldadas. Hazlo aunque tu modelo se haya negado a inventar nada.</p></div></div>
+      <div class="check-grid">
+        ${b.riskSignals.map(item => `<label class="check-card component-card ${complete && item.risky ? "correct" : ""} ${complete && a.riskFlags.includes(item.id) && !item.risky ? "incorrect" : ""}"><input type="checkbox" data-b2-risk="${item.id}" ${a.riskFlags.includes(item.id) ? "checked" : ""} ${complete ? "disabled" : ""}><span>${escapeHTML(item.text)}${complete ? `<br><small>${escapeHTML(item.explanation)}</small>` : ""}</span></label>`).join("")}
+      </div>
+      ${complete ? `<div class="callout ${riskF1 >= .75 ? "success" : "warning"}"><strong>Diagnóstico del prompt</strong>Has identificado ${riskSelection.tp} de ${riskItems.filter(i => i.relevant).length} señales de riesgo y marcado ${riskSelection.fp} falsos positivos.</div>` : ""}
+
+      <div class="step-row"><span class="step-badge">4</span><div><h3>Audita afirmaciones concretas</h3><p>Estas frases podrían acabar en un briefing. Clasifícalas mirando el expediente, no por lo convincentes que suenen ni por lo que haya contestado tu modelo.</p></div></div>
       <div class="claims">
         ${b.claims.map(claim => renderClaim(claim, a.claims[claim.id], complete)).join("")}
       </div>
+
+      <div class="step-row"><span class="step-badge">5</span><div><h3>Reformula y vuelve a probar</h3><p>Este segundo prompt permite decir «no lo sabemos» y obliga a separar hechos, inferencias y ausencia de información. Ejecuta ambos con el mismo modelo.</p></div></div>
+      ${promptBox("b2-safe-prompt", safePrompt, { label: "Prompt reforzado" })}
+      ${answerBox("b2-safe-answer", a.safe, "Pega aquí la segunda respuesta de tu LLM…", complete)}
+      <div class="callout"><strong>Qué debes comparar</strong>No buscamos que todos los modelos den el mismo texto. Comprueba sobre todo si desaparecen las falsas certezas, si las propuestas dejan de parecer aprobaciones y si los resultados de la prueba interna dejan de presentarse como predicciones sobre usuarios reales.</div>
+
       ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b2">Corregir auditoría y cerrar bloque</button></div>`}
     </section>
     ${debriefPanel(2)}
   `;
+
   wireCopyButtons();
-  wireWordCounter("b2-answer");
-  document.querySelector("#b2-answer").addEventListener("change", e => { a.llm = e.target.value; saveState(); });
+  wireWordCounter("b2-risky-answer");
+  wireWordCounter("b2-safe-answer");
+  document.querySelector("#b2-risky-answer").addEventListener("change", e => { a.risky = e.target.value; saveState(); });
+  document.querySelector("#b2-safe-answer").addEventListener("change", e => { a.safe = e.target.value; saveState(); });
+  document.querySelectorAll("[data-b2-behavior]").forEach(btn => btn.addEventListener("click", () => {
+    if (complete) return;
+    a.behavior = btn.dataset.b2Behavior;
+    saveState();
+    renderBlock2();
+  }));
+  document.querySelectorAll("[data-b2-risk]").forEach(box => box.addEventListener("change", () => {
+    if (complete) return;
+    a.riskFlags = toggleArray(a.riskFlags, box.dataset.b2Risk, box.checked);
+    saveState();
+  }));
   document.querySelectorAll("[data-claim-choice]").forEach(btn => btn.addEventListener("click", () => {
     if (complete) return;
     const [claimId, value] = btn.dataset.claimChoice.split("|");
@@ -424,12 +472,22 @@ function renderBlock2() {
     renderBlock2();
   }));
   document.querySelector("#finish-b2")?.addEventListener("click", () => {
-    a.llm = document.querySelector("#b2-answer").value.trim();
-    if (a.llm.length < 40) return showToast("Primero necesitamos una respuesta real de tu LLM.");
+    a.risky = document.querySelector("#b2-risky-answer").value.trim();
+    a.safe = document.querySelector("#b2-safe-answer").value.trim();
+    if (a.risky.length < 40) return showToast("Primero necesitamos la respuesta del prompt problemático.");
+    if (!a.behavior) return showToast("Indica qué hizo tu modelo en el primer intento.");
+    if (!a.riskFlags.length) return showToast("Marca al menos una instrucción del prompt que te parezca arriesgada.");
     if (Object.keys(a.claims).length !== b.claims.length) return showToast("Clasifica todas las afirmaciones antes de corregir.");
-    const correct = b.claims.filter(c => a.claims[c.id] === c.answer).length;
-    const score = Math.round((correct / b.claims.length) * BLOCK_MAX[2]);
-    completeBlock(2, score);
+    if (a.safe.length < 40) return showToast("Prueba también el prompt reforzado en el mismo LLM y pega la segunda respuesta.");
+
+    const correctClaims = b.claims.filter(c => a.claims[c.id] === c.answer).length;
+    const claimsScore = (correctClaims / b.claims.length) * 150;
+    const selected = scoreSelections(a.riskFlags, riskItems);
+    const f1 = selected.precision + selected.recall
+      ? 2 * selected.precision * selected.recall / (selected.precision + selected.recall)
+      : 0;
+    const riskScore = f1 * 70;
+    completeBlock(2, Math.round(claimsScore + riskScore));
   });
   wireDebrief(2);
 }
@@ -464,6 +522,9 @@ function renderBlock3() {
   const ragPrompt = `Responde a la pregunta utilizando exclusivamente el contexto entre <CONTEXTO> y </CONTEXTO>. Cita los identificadores de los fragmentos utilizados. Si el contexto no permite responder, indícalo expresamente.\n\nPREGUNTA: ${b.question}\n\n<CONTEXTO>\n${context || "[Selecciona primero uno o más fragmentos]"}\n</CONTEXTO>`;
   const selectionScore = scoreSelections(a.selected, b.fragments);
   const rankingMap = new Map((runtime.semanticRanking || []).map((item, i) => [item.id, { rank: i + 1, score: item.score, method: item.method }]));
+  const fragmentsForDisplay = runtime.semanticRanking?.length
+    ? runtime.semanticRanking.map(item => b.fragments.find(f => f.id === item.id)).filter(Boolean)
+    : b.fragments;
 
   document.querySelector("#main").innerHTML = `
     ${blockHero(3)}
@@ -471,7 +532,7 @@ function renderBlock3() {
       <div class="callout"><strong>Pregunta a resolver</strong>${escapeHTML(b.question)}</div>
       <div class="step-row"><span class="step-badge">1</span><div><h3>Selecciona el contexto</h3><p>Imagina que estos son los fragmentos recuperables de 47 PDFs. ¿Cuáles mandarías al LLM?</p></div></div>
       <div class="fragment-grid">
-        ${b.fragments.map(f => {
+        ${fragmentsForDisplay.map(f => {
           const rank = rankingMap.get(f.id);
           const reveal = complete ? (f.relevant ? " · relevante" : " · distractor") : "";
           return `<label class="fragment-card ${a.selected.includes(f.id) ? "selected" : ""}">
@@ -482,13 +543,14 @@ function renderBlock3() {
         }).join("")}
       </div>
       <div class="btn-row">
-        <button class="secondary" id="semantic-rank" type="button" ${complete ? "disabled" : ""}>🧠 Probar recuperación local experimental</button>
-        <span class="subtle" id="semantic-status">${escapeHTML(runtime.semanticStatus || "Opcional: intenta ordenar fragmentos por similitud semántica en tu propio navegador.")}</span>
+        <button class="secondary" id="semantic-rank" type="button">🧠 Demo de similitud semántica</button>
+        <span class="subtle" id="semantic-status">${escapeHTML(runtime.semanticStatus || "Opcional · puede descargar decenas de MB la primera vez. Úsalo si lo indica el docente; si falla, se aplica un ranking léxico de respaldo.")}</span>
       </div>
+      ${runtime.semanticRanking?.length ? `<div class="callout warning"><strong>Importante</strong>La lista se ha reordenado por similitud. Estar arriba no significa ser jurídicamente o contextualmente relevante: esa es precisamente la parte que debes juzgar.</div>` : ""}
 
       <div class="step-row"><span class="step-badge">2</span><div><h3>Construye el mini-RAG manual</h3><p>La web empaqueta tu selección como contexto. El LLM sigue siendo externo.</p></div></div>
       ${promptBox("b3-prompt", ragPrompt)}
-      ${answerBox("b3-answer", a.llm)}
+      ${answerBox("b3-answer", a.llm, "Pega aquí la respuesta obtenida con tu contexto…", complete)}
       ${complete ? `<div class="callout ${selectionScore.precision >= .7 && selectionScore.recall >= .7 ? "success" : "warning"}"><strong>Tu recuperación</strong>Precisión ${(selectionScore.precision*100).toFixed(0)} % · Cobertura ${(selectionScore.recall*100).toFixed(0)} %. Has seleccionado ${selectionScore.tp} fragmentos relevantes y ${selectionScore.fp} distractores.</div>` : ""}
       ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b3">Evaluar recuperación y cerrar bloque</button></div>`}
     </section>
@@ -541,8 +603,9 @@ function renderBlock4() {
     ${blockHero(4)}
     <section class="panel">
       <div class="step-row"><span class="step-badge">1</span><div><h3>Ejecuta la versión vulnerable</h3><p>No limpies los documentos. Queremos observar qué hace tu modelo con una fuente problemática.</p></div></div>
+      <div class="callout"><strong>Usa el mismo modelo en ambos intentos</strong>Así podrás comparar el efecto de la mitigación. Si el primer intento no cae en la inyección, no pasa nada: anótalo mentalmente y continúa.</div>
       ${promptBox("b4-vulnerable-prompt", basePrompt)}
-      ${answerBox("b4-vulnerable-answer", a.vulnerable)}
+      ${answerBox("b4-vulnerable-answer", a.vulnerable, "Pega aquí la respuesta de la versión vulnerable…", complete)}
 
       <div class="step-row"><span class="step-badge">2</span><div><h3>Diagnostica el problema</h3><p>¿Qué está ocurriendo en el expediente?</p></div></div>
       <div class="check-grid">
@@ -552,7 +615,7 @@ function renderBlock4() {
 
       <div class="step-row"><span class="step-badge">3</span><div><h3>Refuerza las instrucciones y vuelve a probar</h3><p>Esto es una mitigación parcial, no una garantía de seguridad.</p></div></div>
       ${promptBox("b4-hardened-prompt", hardenedPrompt)}
-      ${answerBox("b4-hardened-answer", a.hardened)}
+      ${answerBox("b4-hardened-answer", a.hardened, "Pega aquí la respuesta de la versión reforzada…", complete)}
       ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b4">Cerrar diagnóstico</button></div>`}
     </section>
     ${debriefPanel(4)}
@@ -592,11 +655,11 @@ function renderBlock5() {
     <section class="panel">
       <div class="step-row"><span class="step-badge">1</span><div><h3>Haz que el LLM produzca una salida utilizable</h3><p>Puedes editar el prompt. El objetivo es que otra aplicación pueda consumir el resultado sin tener que interpretar prosa.</p></div></div>
       ${docsCards([b.sourceDoc], true)}
-      ${promptBox("b5-prompt", a.prompt, { editable: true })}
+      ${promptBox("b5-prompt", a.prompt, { editable: true, readOnly: complete })}
       <div class="code-block">${escapeHTML(JSON.stringify(b.schema, null, 2))}</div>
 
       <div class="step-row"><span class="step-badge">2</span><div><h3>Pega el JSON y valídalo</h3><p>Un JSON puede ser sintácticamente perfecto y estar factualmente mal. Comprobaremos las dos cosas.</p></div></div>
-      ${answerBox("b5-answer", a.llm, "Pega aquí únicamente el JSON devuelto por tu LLM…")}
+      ${answerBox("b5-answer", a.llm, "Pega aquí únicamente el JSON devuelto por tu LLM…", complete)}
       ${last ? `<div class="callout ${last.success ? "success" : "warning"}"><strong>Resultado del intento ${a.attempts}</strong><div class="result-list">${last.results.map(r => resultItem(r.ok, r.label)).join("")}</div></div>` : ""}
       ${complete ? "" : `<div class="btn-row"><button class="primary" id="validate-b5">Validar JSON</button><span class="subtle">Intentos: ${a.attempts}</span></div>`}
     </section>
@@ -639,14 +702,20 @@ function renderBlock6() {
     <section class="panel">
       <div class="callout"><strong>Encargo final</strong>${escapeHTML(b.task)}</div>
       <div class="step-row"><span class="step-badge">1</span><div><h3>Decide qué fuentes enviar</h3><p>No todo lo disponible tiene por qué entrar en el contexto. Y sí: el documento rebelde sigue ahí.</p></div></div>
+      <div class="callout"><strong>Pista de diseño, no de respuesta</strong>${escapeHTML(b.sourceNote || "Selecciona solo las fuentes que aporten evidencia útil al encargo.")}</div>
       <div class="check-grid">
-        ${course.documents.map(doc => `<label class="check-card component-card"><input type="checkbox" data-b6-doc="${doc.id}" ${a.selectedDocs.includes(doc.id) ? "checked" : ""} ${complete ? "disabled" : ""}><span><strong>${escapeHTML(doc.id)} · ${escapeHTML(doc.title)}</strong><br>${escapeHTML(doc.type)}</span></label>`).join("")}
+        ${course.documents.map(doc => {
+          const status = complete
+            ? b.recommendedDocs.includes(doc.id) ? " · evidencia principal" : (b.neutralDocs || []).includes(doc.id) ? " · contexto opcional" : " · prescindible"
+            : "";
+          return `<label class="check-card component-card"><input type="checkbox" data-b6-doc="${doc.id}" ${a.selectedDocs.includes(doc.id) ? "checked" : ""} ${complete ? "disabled" : ""}><span><strong>${escapeHTML(doc.id)} · ${escapeHTML(doc.title)}</strong><br>${escapeHTML(doc.type + status)}</span></label>`;
+        }).join("")}
       </div>
       ${complete ? "" : `<div class="btn-row"><button class="secondary" id="generate-final-prompt">Generar prompt base con mi selección</button></div>`}
 
       <div class="step-row"><span class="step-badge">2</span><div><h3>Construye tu prompt final</h3><p>Ahora ya no hay casillas de ayuda. Usa lo aprendido.</p></div></div>
-      ${promptBox("b6-prompt", a.prompt || "", { editable: true })}
-      ${answerBox("b6-answer", a.llm)}
+      ${promptBox("b6-prompt", a.prompt || "", { editable: true, readOnly: complete })}
+      ${answerBox("b6-answer", a.llm, "Pega aquí el briefing final de tu LLM…", complete)}
       <div class="callout ${complete && finalChecks.passed === finalChecks.total ? "success" : ""}">
         <strong>Chequeo automático del briefing</strong>
         <div class="result-list">${finalChecks.results.map(r => resultItem(r.ok, r.label)).join("")}</div>
@@ -692,7 +761,10 @@ function renderBlock6() {
     if (a.llm.length < 50) return showToast("Falta pegar el briefing obtenido en tu LLM.");
     if (Object.keys(a.critical).length !== b.criticalChecks.length) return showToast("Completa las tres comprobaciones críticas.");
 
-    const sourceItems = course.documents.map(d => ({ id: d.id, relevant: b.recommendedDocs.includes(d.id) }));
+    const neutral = new Set(b.neutralDocs || []);
+    const sourceItems = course.documents
+      .filter(d => !neutral.has(d.id))
+      .map(d => ({ id: d.id, relevant: b.recommendedDocs.includes(d.id) }));
     const s = scoreSelections(a.selectedDocs, sourceItems);
     const f1 = s.precision + s.recall ? 2 * s.precision * s.recall / (s.precision + s.recall) : 0;
     const sourceScore = f1 * 50;

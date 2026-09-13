@@ -1,6 +1,6 @@
 # Operación: Informe para ayer
 
-Práctica web estática para un curso de IA generativa y LLMs. La web organiza seis retos y obliga al participante a utilizar un LLM real externo (ChatGPT, Copilot, Gemini, Claude, modelo corporativo, etc.). No necesita backend ni claves de API.
+Práctica web estática para un curso de IA generativa y LLMs. Versión 1.2, revisada para uso en aula. La web organiza seis retos y obliga al participante a utilizar un LLM real externo (ChatGPT, Copilot, Gemini, Claude, modelo corporativo, etc.). No necesita backend ni claves de API.
 
 ## Qué incluye
 
@@ -11,7 +11,7 @@ Práctica web estática para un curso de IA generativa y LLMs. La web organiza s
 5. **Quiero datos, no literatura** — salida JSON y validación automática.
 6. **El jefe vuelve a llamar** — briefing final integrador.
 
-Entre bloques aparece una pantalla de **puesta en común** con preguntas para revisar todos juntos en clase.
+Entre bloques aparece una pantalla de **puesta en común** con preguntas para revisar todos juntos en clase. Cada bloque muestra una duración orientativa y el botón de avance recuerda esperar la indicación del docente.
 
 ## Arquitectura
 
@@ -87,10 +87,13 @@ Si cambias hechos del expediente, revisa también las soluciones y valores esper
 
 ## Uso en clase
 
-- Pide a los participantes que abran su LLM antes de empezar.
+- Pide a los participantes que abran su LLM antes de empezar. En los bloques con comparación (1 y 4), conviene usar el mismo modelo en ambos intentos.
 - Lanza cada bloque y deja que trabajen de forma autónoma.
 - Cuando aparezca **PAUSA · PUESTA EN COMÚN**, detén al grupo y revisa las preguntas en plenaria.
 - Aprovecha que distintos alumnos usarán modelos diferentes: las diferencias de respuesta son parte de la práctica.
+- En el bloque 2 se hace un experimento A/B con el mismo modelo: primero se prueba un encargo deliberadamente problemático que presiona para completar huecos; después el alumno audita el propio prompt y ejecuta una versión reforzada. Si el modelo resiste desde el primer intento, la actividad sigue siendo válida: debe identificar por qué el prompt era peligroso aunque el modelo se haya comportado bien.
+- En el bloque 3, la recuperación local reordena visualmente los fragmentos; un puesto alto por similitud no equivale a relevancia real.
+- Los bloques completados quedan en modo de revisión para que la puntuación no se desincronice de las respuestas.
 
 ## Privacidad
 
@@ -99,3 +102,12 @@ El expediente incluido es completamente ficticio. La práctica recuerda al alumn
 ## Licencia
 
 Código preparado para uso formativo y adaptación interna. Puedes modificarlo libremente para el curso.
+
+## Cambios de la versión 1.2
+
+- Bloque 2 convertido en un experimento A/B con el mismo LLM: prompt problemático frente a prompt reforzado.
+- El alumno registra si su modelo inventó, resistió o mostró un comportamiento mixto.
+- Se añade una auditoría obligatoria del propio prompt para que el ejercicio siga funcionando aunque el modelo no alucine.
+- La puntuación del bloque 2 combina identificación de señales de riesgo y clasificación de afirmaciones contra las fuentes.
+- Se mantiene la auditoría factual como actividad independiente de lo que haya respondido cada modelo.
+- Resto de mejoras de la v1.1: ranking semántico visible, fuentes opcionales sin penalización y bloqueo de respuestas tras corregir.

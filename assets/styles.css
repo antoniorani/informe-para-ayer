@@ -271,3 +271,24 @@ button:disabled { cursor: not-allowed; opacity: .48; }
   .main { max-width: none; padding: 0; }
   .panel { box-shadow: none; break-inside: avoid; }
 }
+
+/* v1.1 clarity and classroom refinements */
+.hero-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.duration-chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 999px; background: #eef2f6; color: var(--slate); font-size: 10px; font-weight: 800; letter-spacing: .03em; }
+.section-kicker { margin: 12px 0 5px; color: var(--slate); }
+textarea[readonly] { background: #f5f7f9; color: #566273; cursor: default; }
+textarea[readonly]:focus { box-shadow: none; border-color: #bdc8d3; }
+
+@media (max-width: 650px) {
+  .brand-mark { width: 36px; height: 36px; border-radius: 10px; }
+  .brand strong { max-width: 125px; font-size: 13px; }
+  .top-actions { gap: 5px; }
+  .top-actions .ghost { padding: 7px 9px; }
+  .score-pill { padding: 6px 8px; }
+  .hero-meta { align-items: flex-start; }
+}
+
+/* v1.2 · solución visual del diagnóstico de prompt del bloque 2 */
+.check-card.correct { border-color: var(--green); background: var(--green-soft); color: #185c3d; }
+.check-card.incorrect { border-color: var(--red); background: var(--red-soft); color: #7d2525; }
+.check-card small { display: inline-block; margin-top: 6px; line-height: 1.35; color: inherit; }
