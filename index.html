@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Operación: Informe para ayer — práctica interactiva de LLMs" />
+  <meta name="theme-color" content="#2f3b4c" />
+  <title>Operación: Informe para ayer</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <noscript>
+    <div class="noscript">Esta práctica necesita JavaScript. La ironía funciona sin él, la aplicación no.</div>
+  </noscript>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">IA</span>
+      <div>
+        <strong>Operación: Informe para ayer</strong>
+        <span id="case-name">Práctica de LLMs</span>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <button class="ghost" id="open-docs" type="button">📚 Expediente</button>
+      <div class="score-pill" aria-live="polite">
+        <span>Puntos</span>
+        <strong id="score">0</strong><span>/1000</span>
+      </div>
+      <button class="ghost danger-text" id="reset-progress" type="button" title="Borrar todo el progreso">Reiniciar</button>
+    </div>
+  </header>
+
+  <div class="progress-shell" aria-label="Progreso total">
+    <div class="progress-bar"><span id="overall-progress"></span></div>
+    <span id="progress-label">0 de 6 bloques completados</span>
+  </div>
+
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="Bloques de la práctica">
+      <div class="sidebar-intro">
+        <span class="eyebrow">PROYECTO ORIÓN</span>
+        <p>Tu trabajo: conseguir que un LLM sea útil sin convertir una conjetura elegante en un informe oficial.</p>
+      </div>
+      <nav id="block-nav" class="block-nav"></nav>
+
+      <div class="llm-launcher">
+        <p class="mini-title">Tu LLM, en otra pestaña</p>
+        <div class="llm-links">
+          <a href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPT ↗</a>
+          <a href="https://copilot.microsoft.com/" target="_blank" rel="noreferrer">Copilot ↗</a>
+          <a href="https://gemini.google.com/" target="_blank" rel="noreferrer">Gemini ↗</a>
+          <a href="https://claude.ai/" target="_blank" rel="noreferrer">Claude ↗</a>
+        </div>
+        <p class="tiny">Puedes usar cualquier otro LLM al que tengas acceso.</p>
+      </div>
+    </aside>
+
+    <main id="main" class="main" tabindex="-1">
+      <section id="loading" class="panel hero-panel">
+        <span class="eyebrow">CARGANDO EXPEDIENTE</span>
+        <h1>Buscando la versión que no pone «final_v7_definitiva_ahora_si»…</h1>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="docs-dialog" class="dialog docs-dialog">
+    <div class="dialog-header">
+      <div>
+        <span class="eyebrow">EXPEDIENTE</span>
+        <h2>Documentación del Proyecto ORIÓN</h2>
+      </div>
+      <button class="icon-btn" data-close-dialog="docs-dialog" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="docs-list" class="docs-list"></div>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="dialog confirm-dialog">
+    <div class="dialog-header">
+      <div>
+        <span class="eyebrow">CONFIRMACIÓN</span>
+        <h2>¿Reiniciar la práctica?</h2>
+      </div>
+      <button class="icon-btn" data-close-dialog="confirm-dialog" aria-label="Cerrar">✕</button>
+    </div>
+    <p>Se borrarán respuestas, puntuación y progreso guardados en este navegador.</p>
+    <div class="dialog-actions">
+      <button class="ghost" data-close-dialog="confirm-dialog" type="button">Cancelar</button>
+      <button class="danger" id="confirm-reset" type="button">Sí, reiniciar</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
