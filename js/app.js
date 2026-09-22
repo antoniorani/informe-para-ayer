@@ -361,6 +361,59 @@ function wireCopyButtons(scope = document) {
   }));
 }
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function askGemini(prompt) {
+  const key = getPracticeKey();
+  if (!key) {
+    const error = new Error("Falta la clave de la práctica.");
+    error.code = "NO_KEY";
+    throw error;
+  }
+
+  const ai = new GoogleGenAI({ apiKey: key });
+  const delays = [0, 10000, 20000, 35000];
+
+  for (let attempt = 0; attempt < delays.length; attempt += 1) {
+    if (delays[attempt]) {
+      await wait(delays[attempt] + Math.floor(Math.random() * 3500));
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL_ID,
+        contents: String(prompt),
+        config: {
+          maxOutputTokens: 800
+        }
+      });
+
+      const text = String(response.text || "").trim();
+      if (!text) {
+        const error = new Error("Gemini no devolvió texto.");
+        error.code = "EMPTY";
+        throw error;
+      }
+      return text;
+    } catch (error) {
+      const message = String(error?.message || "");
+      const isRateLimit = /429|resource_exhausted|rate.?limit|quota/i.test(message);
+      const isAuth = /401|403|api.?key|permission|unauthorized|forbidden/i.test(message);
+
+      if (isRateLimit && attempt < delays.length - 1) continue;
+      if (isRateLimit) error.code = "RATE_LIMIT";
+      else if (isAuth) error.code = "AUTH";
+      throw error;
+    }
+  }
+
+  const error = new Error("Límite temporal de Gemini.");
+  error.code = "RATE_LIMIT";
+  throw error;
+}
+
 function wireWordCounter(textareaId) {
   const area = document.querySelector(`#${textareaId}`);
   const counter = document.querySelector(`#${textareaId}-counter`);
