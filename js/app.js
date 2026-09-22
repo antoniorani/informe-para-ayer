@@ -7,7 +7,6 @@ import {
   normalize
 } from "./validators.js";
 import { rankFragments } from "./semantic.js";
-import { GoogleGenAI } from "https://esm.sh/@google/genai";
 
 const STORAGE_KEY = "informe-para-ayer-v1.2";
 const BLOCK_MAX = { 1: 180, 2: 220, 3: 180, 4: 140, 5: 140, 6: 140 };
@@ -28,6 +27,7 @@ let toastTimer = null;
 const GEMINI_MODEL_ID = "gemini-3.5-flash-lite";
 const GEMINI_MODEL_LABEL = "Gemini 3.5 Flash-Lite";
 const GEMINI_SESSION_KEY = "informe-para-ayer-gemini-key";
+let geminiSdkPromise = null;
 
 const defaultState = () => ({
   currentBlock: 0,
@@ -419,6 +419,10 @@ async function askGemini(prompt) {
     throw error;
   }
 
+  if (!geminiSdkPromise) {
+    geminiSdkPromise = import("https://esm.sh/@google/genai");
+  }
+  const { GoogleGenAI } = await geminiSdkPromise;
   const ai = new GoogleGenAI({ apiKey: key });
   const delays = [0, 10000, 20000, 35000];
 
