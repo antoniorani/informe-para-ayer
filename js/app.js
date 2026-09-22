@@ -153,6 +153,17 @@ function wireShell() {
     render();
     showToast("Práctica reiniciada. Dirección todavía no se ha enterado.");
   });
+  document.querySelector("#practice-key-settings")?.addEventListener("click", openPracticeKeyDialog);
+  document.querySelector("#save-practice-key")?.addEventListener("click", () => {
+    const input = document.querySelector("#practice-key-input");
+    const key = input?.value?.trim() || "";
+    if (!key) return showToast("Introduce primero la clave de la práctica.");
+    if (!setPracticeKey(key)) return showToast("El navegador no ha podido guardar la clave de la práctica.");
+    input.value = "";
+    document.querySelector("#practice-key-dialog")?.close();
+    updatePracticeKeyChrome();
+    showToast("Clave de la práctica guardada para esta pestaña.");
+  });
   document.querySelectorAll("[data-close-dialog]").forEach(btn => {
     btn.addEventListener("click", () => document.querySelector(`#${btn.dataset.closeDialog}`).close());
   });
@@ -189,6 +200,15 @@ function updateChrome() {
   if (scoreEl) scoreEl.textContent = Math.round(total);
   if (progressEl) progressEl.style.width = `${(completed / 6) * 100}%`;
   if (labelEl) labelEl.textContent = `${completed} de 6 bloques completados`;
+  updatePracticeKeyChrome();
+}
+
+function updatePracticeKeyChrome() {
+  const status = document.querySelector("#practice-key-status");
+  if (!status) return;
+  const ready = hasPracticeKey();
+  status.textContent = ready ? `${GEMINI_MODEL_LABEL} listo` : "Clave de la práctica pendiente";
+  status.closest(".practice-key-status")?.classList.toggle("ready", ready);
 }
 
 function renderNav() {
@@ -213,6 +233,7 @@ function renderNav() {
 }
 
 function renderIntro() {
+  const geminiReady = hasPracticeKey();
   document.querySelector("#main").innerHTML = `
     <section class="panel hero-panel">
       <span class="eyebrow">MISIÓN · ${escapeHTML(course.meta.caseName)}</span>
@@ -224,14 +245,18 @@ function renderIntro() {
     <section class="panel">
       <h2 class="section-title">Cómo funciona la práctica</h2>
       <div class="check-grid">
-        ${infoCard("1", "Usa un LLM real", "En todos los bloques tendrás que copiar un prompt, probarlo en el LLM al que tengas acceso y volver con la respuesta.")}
-        ${infoCard("2", "La web organiza y valida", "Aquí seleccionarás fuentes, construirás prompts, pegarás respuestas y comprobarás lo que sea verificable sin otra IA.")}
+        ${infoCard("1", "Usa un LLM real", "Cada prompt puede ejecutarse directamente con Gemini 3.5 Flash-Lite. Si quieres comparar modelos, también puedes copiarlo y usar otro LLM.")}
+        ${infoCard("2", "La web organiza y valida", "Aquí seleccionarás fuentes, construirás prompts, recibirás o pegarás respuestas y comprobarás lo que sea verificable sin otra IA.")}
         ${infoCard("3", "Paramos entre bloques", "Al terminar cada reto aparecerán preguntas de puesta en común. No corras: el debate también puntúa en la vida real, aunque no aquí.")}
         ${infoCard("4", "No uses datos reales", "Todo el expediente es ficticio. No pegues información sensible de tu organización en herramientas no autorizadas.")}
       </div>
-      <div class="callout warning">
-        <strong>Requisito</strong>
-        Antes de empezar, abre en otra pestaña el LLM que vayas a utilizar. Puede ser ChatGPT, Copilot, Gemini, Claude o el modelo corporativo disponible.
+      <div class="callout ${geminiReady ? "success" : "warning"}">
+        <strong>${geminiReady ? "Gemini preparado" : "Configura la clave de la práctica"}</strong>
+        ${geminiReady
+          ? "Puedes ejecutar los prompts directamente desde esta web. El botón Copiar sigue disponible para probarlos también en otros modelos."
+          : "Introduce una vez la clave facilitada por el docente. Se conservará únicamente durante esta pestaña del navegador."
+        }
+        ${geminiReady ? "" : `<div class="btn-row"><button class="secondary" id="intro-practice-key" type="button">Introducir clave de la práctica</button></div>`}
       </div>
       <div class="btn-row">
         <button class="primary" id="start-practice">Empezar el expediente →</button>
@@ -240,6 +265,7 @@ function renderIntro() {
     </section>`;
   document.querySelector("#start-practice").addEventListener("click", () => goBlock(1));
   document.querySelector("#intro-docs").addEventListener("click", () => document.querySelector("#docs-dialog").showModal());
+  document.querySelector("#intro-practice-key")?.addEventListener("click", openPracticeKeyDialog);
 }
 
 function infoCard(n, title, text) {
