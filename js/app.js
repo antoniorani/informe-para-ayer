@@ -357,8 +357,54 @@ function wireCopyButtons(scope = document) {
     if (!source) return showToast("No encuentro el prompt que hay que copiar.");
     const text = "value" in source ? source.value : source.textContent;
     const ok = await copyText(text);
-    showToast(ok ? "Prompt copiado. Ahora toca hablar con la máquina." : "No se pudo copiar automáticamente. Selecciona el prompt y cópialo manualmente.");
+    showToast(ok ? "Prompt copiado. Puedes probarlo también en otro modelo." : "No se pudo copiar automáticamente. Selecciona el prompt y cópialo manualmente.");
   }));
+  wireGeminiButtons(scope);
+}
+
+function wireGeminiButtons(scope = document) {
+  scope.querySelectorAll(".gemini-btn").forEach(btn => {
+    const target = document.getElementById(btn.dataset.geminiTarget);
+    if (target?.readOnly) btn.disabled = true;
+
+    btn.addEventListener("click", async () => {
+      const source = document.getElementById(btn.dataset.geminiSource);
+      const answer = document.getElementById(btn.dataset.geminiTarget);
+      if (!source || !answer) return showToast("No encuentro el prompt o la caja de respuesta.");
+
+      if (!hasPracticeKey()) {
+        openPracticeKeyDialog();
+        return showToast("Introduce primero la clave de la práctica.");
+      }
+
+      const prompt = ("value" in source ? source.value : source.textContent).trim();
+      if (!prompt) return showToast("El prompt está vacío.");
+
+      const previousLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Consultando Gemini…";
+
+      try {
+        const response = await askGemini(prompt);
+        answer.value = response;
+        answer.dispatchEvent(new Event("input", { bubbles: true }));
+        answer.dispatchEvent(new Event("change", { bubbles: true }));
+        showToast("Respuesta recibida de Gemini.");
+      } catch (error) {
+        console.error("Gemini API", error);
+        if (error.code === "RATE_LIMIT") {
+          showToast("Gemini sigue saturado tras varios reintentos. Espera un minuto y vuelve a pulsar.");
+        } else if (error.code === "AUTH") {
+          showToast("La clave de la práctica no ha sido aceptada por Gemini.");
+        } else {
+          showToast("No se pudo consultar Gemini. Puedes copiar el prompt y continuar con otro LLM.");
+        }
+      } finally {
+        btn.disabled = Boolean(answer.readOnly);
+        btn.textContent = previousLabel;
+      }
+    });
+  });
 }
 
 function wait(ms) {
