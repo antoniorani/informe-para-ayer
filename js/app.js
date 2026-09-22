@@ -7,6 +7,7 @@ import {
   normalize
 } from "./validators.js";
 import { rankFragments } from "./semantic.js";
+import { GoogleGenAI } from "https://esm.sh/@google/genai";
 
 const STORAGE_KEY = "informe-para-ayer-v1.2";
 const BLOCK_MAX = { 1: 180, 2: 220, 3: 180, 4: 140, 5: 140, 6: 140 };
@@ -23,6 +24,10 @@ let course = null;
 let docsById = new Map();
 let runtime = { semanticRanking: null, semanticStatus: "" };
 let toastTimer = null;
+
+const GEMINI_MODEL_ID = "gemini-3.5-flash-lite";
+const GEMINI_MODEL_LABEL = "Gemini 3.5 Flash-Lite";
+const GEMINI_SESSION_KEY = "informe-para-ayer-gemini-key";
 
 const defaultState = () => ({
   currentBlock: 0,
@@ -41,6 +46,7 @@ const defaultState = () => ({
 let state = defaultState();
 
 async function init() {
+  initializePracticeKey();
   try {
     const response = await fetch("data/case.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -91,6 +97,49 @@ function saveState() {
     console.warn("No se pudo guardar el progreso en localStorage.", error);
   }
   updateChrome();
+}
+
+function getPracticeKey() {
+  try {
+    return sessionStorage.getItem(GEMINI_SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setPracticeKey(key) {
+  const clean = String(key || "").trim();
+  if (!clean) return false;
+  try {
+    sessionStorage.setItem(GEMINI_SESSION_KEY, clean);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasPracticeKey() {
+  return Boolean(getPracticeKey());
+}
+
+function initializePracticeKey() {
+  const rawHash = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+  if (!rawHash) return;
+  const params = new URLSearchParams(rawHash);
+  const key = (params.get("practice_key") || params.get("gemini_key") || "").trim();
+  if (!key) return;
+  setPracticeKey(key);
+  try {
+    history.replaceState(null, document.title, location.pathname + location.search);
+  } catch (error) {
+    console.warn("No se pudo limpiar la clave de la barra de direcciones.", error);
+  }
+}
+
+function openPracticeKeyDialog() {
+  const input = document.querySelector("#practice-key-input");
+  if (input) input.value = "";
+  document.querySelector("#practice-key-dialog")?.showModal();
 }
 
 function wireShell() {
