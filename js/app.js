@@ -308,9 +308,16 @@ function formatDocs(ids) {
 }
 
 function promptBox(id, content, { editable = false, label = "Prompt para tu LLM", readOnly = false } = {}) {
+  const answerTarget = id.replace(/-prompt$/, "-answer");
   return `
     <div class="prompt-box">
-      <div class="prompt-toolbar"><span>${escapeHTML(label)}</span><button class="ghost copy-btn" data-copy-source="${id}" type="button">Copiar</button></div>
+      <div class="prompt-toolbar">
+        <span>${escapeHTML(label)}</span>
+        <div class="prompt-actions">
+          <button class="secondary gemini-btn" data-gemini-source="${id}" data-gemini-target="${answerTarget}" type="button">✨ Ejecutar con Gemini</button>
+          <button class="ghost copy-btn" data-copy-source="${id}" type="button">Copiar</button>
+        </div>
+      </div>
       ${editable
         ? `<textarea class="prompt-input" id="${id}" spellcheck="false" ${readOnly ? "readonly" : ""}>${escapeHTML(content)}</textarea>`
         : `<pre class="prompt-content" id="${id}">${escapeHTML(content)}</pre>`}
