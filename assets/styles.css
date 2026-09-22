@@ -292,3 +292,24 @@ textarea[readonly]:focus { box-shadow: none; border-color: #bdc8d3; }
 .check-card.correct { border-color: var(--green); background: var(--green-soft); color: #185c3d; }
 .check-card.incorrect { border-color: var(--red); background: var(--red-soft); color: #7d2525; }
 .check-card small { display: inline-block; margin-top: 6px; line-height: 1.35; color: inherit; }
+
+
+/* v1.3 · Gemini integrado y clave temporal de la práctica */
+.prompt-actions { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; justify-content: flex-end; }
+.gemini-btn { white-space: nowrap; }
+.practice-key-status { display: flex; align-items: center; gap: 7px; margin: 0 0 9px; font-size: 10px; color: #d7dee6; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #d59d38; box-shadow: 0 0 0 3px rgba(213,157,56,.14); }
+.practice-key-status.ready .status-dot { background: #58c58c; box-shadow: 0 0 0 3px rgba(88,197,140,.14); }
+.practice-key-settings-btn { width: 100%; margin-bottom: 9px; border-color: rgba(255,255,255,.32); font-size: 11px; }
+.practice-key-dialog { width: min(560px, calc(100vw - 30px)); }
+.practice-key-dialog-body { padding: 18px 22px 8px; }
+.field-label { display: block; margin: 14px 0 6px; font-size: 11px; font-weight: 800; color: var(--slate); text-transform: uppercase; letter-spacing: .05em; }
+.key-input { width: 100%; border: 1px solid #bdc8d3; border-radius: 10px; padding: 11px 12px; font: inherit; outline: none; }
+.key-input:focus { box-shadow: 0 0 0 3px rgba(232,126,42,.14); border-color: var(--orange); }
+.dialog-note { color: var(--muted); margin-top: 10px; }
+
+@media (max-width: 650px) {
+  .prompt-toolbar { align-items: flex-start; flex-direction: column; }
+  .prompt-actions { width: 100%; justify-content: stretch; }
+  .prompt-actions button { flex: 1 1 auto; }
+}

@@ -24,6 +24,11 @@ let docsById = new Map();
 let runtime = { semanticRanking: null, semanticStatus: "" };
 let toastTimer = null;
 
+const GEMINI_MODEL_ID = "gemini-3.5-flash-lite";
+const GEMINI_MODEL_LABEL = "Gemini 3.5 Flash-Lite";
+const GEMINI_SESSION_KEY = "informe-para-ayer-gemini-key";
+let geminiSdkPromise = null;
+
 const defaultState = () => ({
   currentBlock: 0,
   completed: [],
@@ -41,6 +46,7 @@ const defaultState = () => ({
 let state = defaultState();
 
 async function init() {
+  initializePracticeKey();
   try {
     const response = await fetch("data/case.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -93,6 +99,49 @@ function saveState() {
   updateChrome();
 }
 
+function getPracticeKey() {
+  try {
+    return sessionStorage.getItem(GEMINI_SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setPracticeKey(key) {
+  const clean = String(key || "").trim();
+  if (!clean) return false;
+  try {
+    sessionStorage.setItem(GEMINI_SESSION_KEY, clean);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasPracticeKey() {
+  return Boolean(getPracticeKey());
+}
+
+function initializePracticeKey() {
+  const rawHash = location.hash.startsWith("#") ? location.hash.slice(1) : "";
+  if (!rawHash) return;
+  const params = new URLSearchParams(rawHash);
+  const key = (params.get("practice_key") || params.get("gemini_key") || "").trim();
+  if (!key) return;
+  setPracticeKey(key);
+  try {
+    history.replaceState(null, document.title, location.pathname + location.search);
+  } catch (error) {
+    console.warn("No se pudo limpiar la clave de la barra de direcciones.", error);
+  }
+}
+
+function openPracticeKeyDialog() {
+  const input = document.querySelector("#practice-key-input");
+  if (input) input.value = "";
+  document.querySelector("#practice-key-dialog")?.showModal();
+}
+
 function wireShell() {
   document.querySelector("#open-docs").addEventListener("click", () => document.querySelector("#docs-dialog").showModal());
   document.querySelector("#reset-progress").addEventListener("click", () => document.querySelector("#confirm-dialog").showModal());
@@ -103,6 +152,17 @@ function wireShell() {
     document.querySelector("#confirm-dialog").close();
     render();
     showToast("Práctica reiniciada. Dirección todavía no se ha enterado.");
+  });
+  document.querySelector("#practice-key-settings")?.addEventListener("click", openPracticeKeyDialog);
+  document.querySelector("#save-practice-key")?.addEventListener("click", () => {
+    const input = document.querySelector("#practice-key-input");
+    const key = input?.value?.trim() || "";
+    if (!key) return showToast("Introduce primero la clave de la práctica.");
+    if (!setPracticeKey(key)) return showToast("El navegador no ha podido guardar la clave de la práctica.");
+    input.value = "";
+    document.querySelector("#practice-key-dialog")?.close();
+    updatePracticeKeyChrome();
+    showToast("Clave de la práctica guardada para esta pestaña.");
   });
   document.querySelectorAll("[data-close-dialog]").forEach(btn => {
     btn.addEventListener("click", () => document.querySelector(`#${btn.dataset.closeDialog}`).close());
@@ -140,6 +200,15 @@ function updateChrome() {
   if (scoreEl) scoreEl.textContent = Math.round(total);
   if (progressEl) progressEl.style.width = `${(completed / 6) * 100}%`;
   if (labelEl) labelEl.textContent = `${completed} de 6 bloques completados`;
+  updatePracticeKeyChrome();
+}
+
+function updatePracticeKeyChrome() {
+  const status = document.querySelector("#practice-key-status");
+  if (!status) return;
+  const ready = hasPracticeKey();
+  status.textContent = ready ? `${GEMINI_MODEL_LABEL} listo` : "Clave de la práctica pendiente";
+  status.closest(".practice-key-status")?.classList.toggle("ready", ready);
 }
 
 function renderNav() {
@@ -164,6 +233,7 @@ function renderNav() {
 }
 
 function renderIntro() {
+  const geminiReady = hasPracticeKey();
   document.querySelector("#main").innerHTML = `
     <section class="panel hero-panel">
       <span class="eyebrow">MISIÓN · ${escapeHTML(course.meta.caseName)}</span>
@@ -175,14 +245,18 @@ function renderIntro() {
     <section class="panel">
       <h2 class="section-title">Cómo funciona la práctica</h2>
       <div class="check-grid">
-        ${infoCard("1", "Usa un LLM real", "En todos los bloques tendrás que copiar un prompt, probarlo en el LLM al que tengas acceso y volver con la respuesta.")}
-        ${infoCard("2", "La web organiza y valida", "Aquí seleccionarás fuentes, construirás prompts, pegarás respuestas y comprobarás lo que sea verificable sin otra IA.")}
+        ${infoCard("1", "Usa un LLM real", "Cada prompt puede ejecutarse directamente con Gemini 3.5 Flash-Lite. Si quieres comparar modelos, también puedes copiarlo y usar otro LLM.")}
+        ${infoCard("2", "La web organiza y valida", "Aquí seleccionarás fuentes, construirás prompts, recibirás o pegarás respuestas y comprobarás lo que sea verificable sin otra IA.")}
         ${infoCard("3", "Paramos entre bloques", "Al terminar cada reto aparecerán preguntas de puesta en común. No corras: el debate también puntúa en la vida real, aunque no aquí.")}
         ${infoCard("4", "No uses datos reales", "Todo el expediente es ficticio. No pegues información sensible de tu organización en herramientas no autorizadas.")}
       </div>
-      <div class="callout warning">
-        <strong>Requisito</strong>
-        Antes de empezar, abre en otra pestaña el LLM que vayas a utilizar. Puede ser ChatGPT, Copilot, Gemini, Claude o el modelo corporativo disponible.
+      <div class="callout ${geminiReady ? "success" : "warning"}">
+        <strong>${geminiReady ? "Gemini preparado" : "Configura la clave de la práctica"}</strong>
+        ${geminiReady
+          ? "Puedes ejecutar los prompts directamente desde esta web. El botón Copiar sigue disponible para probarlos también en otros modelos."
+          : "Introduce una vez la clave facilitada por el docente. Se conservará únicamente durante esta pestaña del navegador."
+        }
+        ${geminiReady ? "" : `<div class="btn-row"><button class="secondary" id="intro-practice-key" type="button">Introducir clave de la práctica</button></div>`}
       </div>
       <div class="btn-row">
         <button class="primary" id="start-practice">Empezar el expediente →</button>
@@ -191,6 +265,7 @@ function renderIntro() {
     </section>`;
   document.querySelector("#start-practice").addEventListener("click", () => goBlock(1));
   document.querySelector("#intro-docs").addEventListener("click", () => document.querySelector("#docs-dialog").showModal());
+  document.querySelector("#intro-practice-key")?.addEventListener("click", openPracticeKeyDialog);
 }
 
 function infoCard(n, title, text) {
@@ -233,9 +308,16 @@ function formatDocs(ids) {
 }
 
 function promptBox(id, content, { editable = false, label = "Prompt para tu LLM", readOnly = false } = {}) {
+  const answerTarget = id.replace(/-prompt$/, "-answer");
   return `
     <div class="prompt-box">
-      <div class="prompt-toolbar"><span>${escapeHTML(label)}</span><button class="ghost copy-btn" data-copy-source="${id}" type="button">Copiar</button></div>
+      <div class="prompt-toolbar">
+        <span>${escapeHTML(label)}</span>
+        <div class="prompt-actions">
+          <button class="secondary gemini-btn" data-gemini-source="${id}" data-gemini-target="${answerTarget}" type="button">✨ Ejecutar con Gemini</button>
+          <button class="ghost copy-btn" data-copy-source="${id}" type="button">Copiar</button>
+        </div>
+      </div>
       ${editable
         ? `<textarea class="prompt-input" id="${id}" spellcheck="false" ${readOnly ? "readonly" : ""}>${escapeHTML(content)}</textarea>`
         : `<pre class="prompt-content" id="${id}">${escapeHTML(content)}</pre>`}
@@ -275,8 +357,111 @@ function wireCopyButtons(scope = document) {
     if (!source) return showToast("No encuentro el prompt que hay que copiar.");
     const text = "value" in source ? source.value : source.textContent;
     const ok = await copyText(text);
-    showToast(ok ? "Prompt copiado. Ahora toca hablar con la máquina." : "No se pudo copiar automáticamente. Selecciona el prompt y cópialo manualmente.");
+    showToast(ok ? "Prompt copiado. Puedes probarlo también en otro modelo." : "No se pudo copiar automáticamente. Selecciona el prompt y cópialo manualmente.");
   }));
+  wireGeminiButtons(scope);
+}
+
+function wireGeminiButtons(scope = document) {
+  scope.querySelectorAll(".gemini-btn").forEach(btn => {
+    const target = document.getElementById(btn.dataset.geminiTarget);
+    if (target?.readOnly) btn.disabled = true;
+
+    btn.addEventListener("click", async () => {
+      const source = document.getElementById(btn.dataset.geminiSource);
+      const answer = document.getElementById(btn.dataset.geminiTarget);
+      if (!source || !answer) return showToast("No encuentro el prompt o la caja de respuesta.");
+
+      if (!hasPracticeKey()) {
+        openPracticeKeyDialog();
+        return showToast("Introduce primero la clave de la práctica.");
+      }
+
+      const prompt = ("value" in source ? source.value : source.textContent).trim();
+      if (!prompt) return showToast("El prompt está vacío.");
+
+      const previousLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Consultando Gemini…";
+
+      try {
+        const response = await askGemini(prompt);
+        answer.value = response;
+        answer.dispatchEvent(new Event("input", { bubbles: true }));
+        answer.dispatchEvent(new Event("change", { bubbles: true }));
+        showToast("Respuesta recibida de Gemini.");
+      } catch (error) {
+        console.error("Gemini API", error);
+        if (error.code === "RATE_LIMIT") {
+          showToast("Gemini sigue saturado tras varios reintentos. Espera un minuto y vuelve a pulsar.");
+        } else if (error.code === "AUTH") {
+          showToast("La clave de la práctica no ha sido aceptada por Gemini.");
+        } else {
+          showToast("No se pudo consultar Gemini. Puedes copiar el prompt y continuar con otro LLM.");
+        }
+      } finally {
+        btn.disabled = Boolean(answer.readOnly);
+        btn.textContent = previousLabel;
+      }
+    });
+  });
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function askGemini(prompt) {
+  const key = getPracticeKey();
+  if (!key) {
+    const error = new Error("Falta la clave de la práctica.");
+    error.code = "NO_KEY";
+    throw error;
+  }
+
+  if (!geminiSdkPromise) {
+    geminiSdkPromise = import("https://esm.sh/@google/genai");
+  }
+  const { GoogleGenAI } = await geminiSdkPromise;
+  const ai = new GoogleGenAI({ apiKey: key });
+  const delays = [0, 10000, 20000, 35000];
+
+  for (let attempt = 0; attempt < delays.length; attempt += 1) {
+    if (delays[attempt]) {
+      await wait(delays[attempt] + Math.floor(Math.random() * 3500));
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model: GEMINI_MODEL_ID,
+        contents: String(prompt),
+        config: {
+          maxOutputTokens: 800
+        }
+      });
+
+      const text = String(response.text || "").trim();
+      if (!text) {
+        const error = new Error("Gemini no devolvió texto.");
+        error.code = "EMPTY";
+        throw error;
+      }
+      return text;
+    } catch (error) {
+      const message = String(error?.message || "");
+      const isRateLimit = /429|resource_exhausted|rate.?limit|quota/i.test(message);
+      const isAuth = /401|403|api.?key|permission|unauthorized|forbidden/i.test(message);
+
+      if (isRateLimit && attempt < delays.length - 1) continue;
+      if (isRateLimit) error.code = "RATE_LIMIT";
+      else if (isAuth) error.code = "AUTH";
+      throw error;
+    }
+  }
+
+  const error = new Error("Límite temporal de Gemini.");
+  error.code = "RATE_LIMIT";
+  throw error;
 }
 
 function wireWordCounter(textareaId) {

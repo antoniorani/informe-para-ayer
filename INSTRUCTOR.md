@@ -4,7 +4,11 @@ Esta práctica está pensada para alternar **trabajo autónomo** y **puesta en c
 
 ## Antes de empezar
 
-- Pide a todos que abran un LLM al que tengan acceso.
+- Genera una clave temporal de Gemini para la sesión y revócala al terminar.
+- Los alumnos pueden pulsar **Introducir clave de la práctica** y pegarla una sola vez.
+- Si quieres ahorrar ese paso, puedes compartir un enlace del tipo `https://antoniorani.github.io/informe-para-ayer/#practice_key=CLAVE_TEMPORAL`; la página toma la clave y limpia la URL.
+- El botón **Ejecutar con Gemini** usa Gemini 3.5 Flash-Lite y rellena automáticamente la respuesta. El botón **Copiar** sigue disponible para comparar con otros modelos.
+- Si varios alumnos reciben un límite de cuota, la web reintenta automáticamente; si persiste, espera un minuto o usa otro LLM con el flujo copiar/pegar.
 - Recalca que el expediente es ficticio y que no deben utilizar datos reales o sensibles.
 - No expliques la “trampa” de cada bloque antes de tiempo.
 - Las diferencias entre ChatGPT, Copilot, Gemini, Claude u otros modelos son material de discusión, no un problema de la práctica.
