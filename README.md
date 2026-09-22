@@ -1,6 +1,6 @@
 # Operación: Informe para ayer
 
-Práctica web estática para un curso de IA generativa y LLMs. Versión 1.2, revisada para uso en aula. La web organiza seis retos y obliga al participante a utilizar un LLM real externo (ChatGPT, Copilot, Gemini, Claude, modelo corporativo, etc.). No necesita backend ni claves de API.
+Práctica web estática para un curso de IA generativa y LLMs. Versión 1.3, revisada para uso en aula. La web organiza seis retos e integra Gemini 3.5 Flash-Lite para ejecutar los prompts sin salir de la práctica. También mantiene el flujo de copiar/pegar para comparar con otros LLMs. No necesita backend.
 
 ## Qué incluye
 
@@ -20,6 +20,7 @@ Entre bloques aparece una pantalla de **puesta en común** con preguntas para re
 - `js/app.js` — navegación, lógica, puntuación y estado.
 - `js/validators.js` — validaciones deterministas de texto y JSON.
 - `js/semantic.js` — recuperación local opcional con embeddings y respaldo léxico.
+- Integración con Gemini cargada bajo demanda desde el navegador.
 - `data/case.json` — expediente ficticio, preguntas, soluciones y reglas.
 
 Todo el progreso se guarda en `localStorage` del navegador.
@@ -59,6 +60,22 @@ node tests/validate.mjs
 ```
 
 Comprueban la coherencia del expediente, referencias entre documentos y bloques, y las validaciones deterministas (incluidos tipos y fechas del ejercicio JSON).
+
+## Gemini integrado y clave de la práctica
+
+Junto a cada prompt aparece **«Ejecutar con Gemini»**. La respuesta se coloca automáticamente en la caja correspondiente. El botón **Copiar** se mantiene para usar otro modelo o como alternativa si la API no está disponible.
+
+La clave no se guarda en el repositorio ni en `localStorage`. El alumno la introduce como **«Clave de la práctica»** y se conserva únicamente en `sessionStorage` de esa pestaña.
+
+También se puede compartir un enlace temporal con esta forma:
+
+```text
+https://antoniorani.github.io/informe-para-ayer/#practice_key=CLAVE_TEMPORAL
+```
+
+La página captura la clave, la guarda en la sesión y elimina el fragmento de la barra de direcciones. Para una clase, conviene crear una clave específica y revocarla al terminar.
+
+Si Gemini responde con un límite temporal de cuota, la web reintenta automáticamente con esperas crecientes y un pequeño retardo aleatorio para repartir los picos de uso.
 
 ## Recuperación semántica local
 
@@ -111,3 +128,13 @@ Código preparado para uso formativo y adaptación interna. Puedes modificarlo l
 - La puntuación del bloque 2 combina identificación de señales de riesgo y clasificación de afirmaciones contra las fuentes.
 - Se mantiene la auditoría factual como actividad independiente de lo que haya respondido cada modelo.
 - Resto de mejoras de la v1.1: ranking semántico visible, fuentes opcionales sin penalización y bloqueo de respuestas tras corregir.
+
+
+## Cambios de la versión 1.3
+
+- Botón **Ejecutar con Gemini** junto a todos los prompts.
+- Modelo por defecto: `gemini-3.5-flash-lite`.
+- Campo **Clave de la práctica**, guardado solo en `sessionStorage`.
+- Soporte opcional para enlaces de aula con `#practice_key=...`.
+- Reintentos automáticos ante picos de cuota.
+- Se mantiene el flujo copiar/pegar para comparar otros modelos.
