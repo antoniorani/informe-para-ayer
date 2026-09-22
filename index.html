@@ -46,14 +46,16 @@
       <nav id="block-nav" class="block-nav"></nav>
 
       <div class="llm-launcher">
-        <p class="mini-title">Tu LLM, en otra pestaña</p>
+        <p class="mini-title">LLM de la práctica</p>
+        <div class="practice-key-status"><span class="status-dot"></span><span id="practice-key-status">Clave de la práctica pendiente</span></div>
+        <button class="ghost practice-key-settings-btn" id="practice-key-settings" type="button">Introducir clave de la práctica</button>
+        <p class="tiny">La clave se conserva solo durante esta pestaña. Los prompts pueden ejecutarse con Gemini 3.5 Flash-Lite o copiarse para probar otro modelo.</p>
         <div class="llm-links">
           <a href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPT ↗</a>
           <a href="https://copilot.microsoft.com/" target="_blank" rel="noreferrer">Copilot ↗</a>
           <a href="https://gemini.google.com/" target="_blank" rel="noreferrer">Gemini ↗</a>
           <a href="https://claude.ai/" target="_blank" rel="noreferrer">Claude ↗</a>
         </div>
-        <p class="tiny">Puedes usar cualquier otro LLM al que tengas acceso.</p>
       </div>
     </aside>
 
@@ -88,6 +90,26 @@
     <div class="dialog-actions">
       <button class="ghost" data-close-dialog="confirm-dialog" type="button">Cancelar</button>
       <button class="danger" id="confirm-reset" type="button">Sí, reiniciar</button>
+    </div>
+  </dialog>
+
+  <dialog id="practice-key-dialog" class="dialog confirm-dialog practice-key-dialog">
+    <div class="dialog-header">
+      <div>
+        <span class="eyebrow">LLM DE LA PRÁCTICA</span>
+        <h2>Clave de la práctica</h2>
+      </div>
+      <button class="icon-btn" data-close-dialog="practice-key-dialog" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="practice-key-dialog-body">
+      <p>Introduce la clave facilitada por el docente. Se guarda únicamente durante esta pestaña del navegador y no forma parte del progreso ni del repositorio.</p>
+      <label class="field-label" for="practice-key-input">Clave de la práctica</label>
+      <input id="practice-key-input" class="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" />
+      <p class="tiny dialog-note">Si cierras la pestaña, tendrás que introducirla de nuevo.</p>
+    </div>
+    <div class="dialog-actions">
+      <button class="ghost" data-close-dialog="practice-key-dialog" type="button">Cancelar</button>
+      <button class="primary" id="save-practice-key" type="button">Usar esta clave</button>
     </div>
   </dialog>
 
