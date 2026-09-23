@@ -638,119 +638,114 @@ function buildBlock2Prompt() {
 function renderBlock2() {
   const b = course.blocks["2"];
   const a = state.answers.b2;
-  const riskyPrompt = `${b.riskyPrompt}\n\n<FUENTES>\n${formatDocs(b.requiredDocs)}\n</FUENTES>`;
-  const safePrompt = `${b.safePrompt}\n\n<FUENTES>\n${formatDocs(b.requiredDocs)}\n</FUENTES>`;
   const complete = state.completed.includes(2);
-  const riskItems = b.riskSignals.map(item => ({ id: item.id, relevant: item.risky }));
-  const riskSelection = scoreSelections(a.riskFlags, riskItems);
-  const riskF1 = riskSelection.precision + riskSelection.recall
-    ? 2 * riskSelection.precision * riskSelection.recall / (riskSelection.precision + riskSelection.recall)
-    : 0;
+  if (!a.prompt) a.prompt = state.answers.b1.prompt || "";
 
-  const behaviorMessage = !a.behavior ? "" : a.behavior === "resisted"
-    ? `<div class="callout success"><strong>Tu modelo ha sido prudente</strong>Perfecto: no necesitamos que el modelo falle para aprender. Ahora analiza por qué el encargo seguía siendo peligroso. Un modelo distinto, otra versión o un contexto diferente podría obedecer la presión del prompt.</div>`
-    : a.behavior === "invented"
-      ? `<div class="callout warning"><strong>Ya tienes un caso de afirmación no respaldada</strong>No te centres solo en culpar al modelo: parte del problema está en un encargo que le exige completar huecos y ocultar la incertidumbre.</div>`
-      : `<div class="callout warning"><strong>Comportamiento mixto</strong>Es un caso muy realista: el modelo puede ser prudente en unos apartados y extrapolar demasiado en otros. Hay que auditar afirmación por afirmación.</div>`;
+  const baseline = state.answers.b1.answer || "";
+  const rubric = promptRubric(a.prompt);
+  const v0 = baselineMetrics(baseline);
+  const v1 = baselineMetrics(a.answer);
+  const v0Errors = criticalErrorCount(baseline);
+  const v1Errors = criticalErrorCount(a.answer);
+  const docsForAudit = ["D1","D2","D3","D4","D5","D6","D7"];
 
-  document.querySelector("#main").innerHTML = `
-    ${blockHero(2)}
+  document.querySelector("#main").innerHTML = \`
+    \${blockHero(2)}
     <section class="panel">
-      <div class="step-row"><span class="step-badge">1</span><div><h3>Ejecuta el encargo tal como ha llegado</h3><p>No lo corrijas todavía. El prompt contiene presión para dar respuestas cerradas incluso cuando faltan datos.</p></div></div>
-      <div class="callout"><strong>Usa el mismo LLM en los dos intentos</strong>Así podrás comparar el efecto del prompt y no el cambio de modelo.</div>
-      ${promptBox("b2-risky-prompt", riskyPrompt, { label: "Prompt problemático · cópialo sin modificar" })}
-      ${answerBox("b2-risky-answer", a.risky, "Pega aquí la primera respuesta de tu LLM…", complete)}
-
-      <div class="step-row"><span class="step-badge">2</span><div><h3>¿Qué hizo tu modelo?</h3><p>No hay una opción «buena» para puntuar. Solo queremos registrar lo que ocurrió.</p></div></div>
-      <div class="check-grid">
-        ${b.behaviorOptions.map(option => `<button class="check-card choice ${a.behavior === option.id ? "selected" : ""}" data-b2-behavior="${option.id}" type="button" ${complete ? "disabled" : ""}>${escapeHTML(option.label)}</button>`).join("")}
-      </div>
-      ${behaviorMessage}
-
-      <div class="step-row"><span class="step-badge">3</span><div><h3>Audita ahora el prompt</h3><p>Marca las instrucciones que aumentan el riesgo de producir afirmaciones no respaldadas. Hazlo aunque tu modelo se haya negado a inventar nada.</p></div></div>
-      <div class="check-grid">
-        ${b.riskSignals.map(item => `<label class="check-card component-card ${complete && item.risky ? "correct" : ""} ${complete && a.riskFlags.includes(item.id) && !item.risky ? "incorrect" : ""}"><input type="checkbox" data-b2-risk="${item.id}" ${a.riskFlags.includes(item.id) ? "checked" : ""} ${complete ? "disabled" : ""}><span>${escapeHTML(item.text)}${complete ? `<br><small>${escapeHTML(item.explanation)}</small>` : ""}</span></label>`).join("")}
-      </div>
-      ${complete ? `<div class="callout ${riskF1 >= .75 ? "success" : "warning"}"><strong>Diagnóstico del prompt</strong>Has identificado ${riskSelection.tp} de ${riskItems.filter(i => i.relevant).length} señales de riesgo y marcado ${riskSelection.fp} falsos positivos.</div>` : ""}
-
-      <div class="step-row"><span class="step-badge">4</span><div><h3>Audita afirmaciones concretas</h3><p>Estas frases podrían acabar en un briefing. Clasifícalas mirando el expediente, no por lo convincentes que suenen ni por lo que haya contestado tu modelo.</p></div></div>
-      <div class="claims">
-        ${b.claims.map(claim => renderClaim(claim, a.claims[claim.id], complete)).join("")}
+      <div class="step-row"><span class="step-badge">1</span><div><h3>Audita tu propia Versión 0</h3><p>Dirección no quiere saber si el texto «suena bien». Quiere saber de dónde sale cada afirmación importante.</p></div></div>
+      <div class="version-card">
+        <div class="version-head"><strong>Versión 0</strong><span>\${countWords(baseline)} palabras</span></div>
+        <div class="version-text">\${escapeHTML(baseline)}</div>
       </div>
 
-      <div class="step-row"><span class="step-badge">5</span><div><h3>Reformula y vuelve a probar</h3><p>Este segundo prompt permite decir «no lo sabemos» y obliga a separar hechos, inferencias y ausencia de información. Ejecuta ambos con el mismo modelo.</p></div></div>
-      ${promptBox("b2-safe-prompt", safePrompt, { label: "Prompt reforzado" })}
-      ${answerBox("b2-safe-answer", a.safe, "Pega aquí la segunda respuesta de tu LLM…", complete)}
-      <div class="callout"><strong>Qué debes comparar</strong>No buscamos que todos los modelos den el mismo texto. Comprueba sobre todo si desaparecen las falsas certezas, si las propuestas dejan de parecer aprobaciones y si los resultados de la prueba interna dejan de presentarse como predicciones sobre usuarios reales.</div>
+      <div class="audit-grid">
+        \${b.auditTopics.map(topic => {
+          const claim = extractAuditSentence(baseline, topic);
+          const selected = a.audit[topic.id] || "";
+          const correct = topic.validDocs.length ? topic.validDocs.includes(selected) : selected === "__none__";
+          return \`<article class="audit-card \${complete ? (correct ? "audit-ok" : "audit-bad") : ""}">
+            <div class="doc-meta">\${escapeHTML(topic.label)}</div>
+            <p><strong>\${escapeHTML(claim)}</strong></p>
+            <label class="field-label" for="audit-\${topic.id}">¿Qué evidencia usarías para defenderla?</label>
+            <select id="audit-\${topic.id}" class="audit-select" data-audit-topic="\${topic.id}" \${complete ? "disabled" : ""}>
+              <option value="">Selecciona…</option>
+              <option value="__none__" \${selected === "__none__" ? "selected" : ""}>No puedo respaldarla con el expediente</option>
+              \${docsForAudit.map(id => \`<option value="\${id}" \${selected === id ? "selected" : ""}>\${id} · \${escapeHTML(docsById.get(id)?.title || id)}</option>\`).join("")}
+            </select>
+            \${complete ? \`<div class="explanation"><strong>\${correct ? "Correcto" : "Revisa la trazabilidad"}.</strong> \${topic.validDocs.length ? \`Evidencia preparada: \${topic.validDocs.join(" / ")}.\` : "El expediente no contiene una evidencia suficiente para sostener esa afirmación como hecho."}</div>\` : ""}
+          </article>\`;
+        }).join("")}
+      </div>
 
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b2">Corregir auditoría y cerrar bloque</button></div>`}
+      <div class="step-row"><span class="step-badge">2</span><div><h3>Reescribe el encargo para que sea defendible</h3><p>Parte de tu primer prompt. Añade criterios de aceptación que obliguen a trabajar con evidencia y a reconocer la incertidumbre.</p></div></div>
+      \${promptBox("b2-prompt", a.prompt, { editable: true, label: "Prompt revisado · Versión 1", readOnly: complete })}
+      \${answerBox("b2-answer", a.answer, "Ejecuta el prompt revisado con el mismo modelo. Esta será la Versión 1.", complete)}
+
+      <div class="prompt-rubric">
+        <div class="mini-title">Rúbrica del prompt · aparece después de intentarlo</div>
+        <div class="result-list">
+          \${rubric.map(item => resultItem(item.ok, item.label)).join("")}
+        </div>
+      </div>
+
+      \${a.answer ? \`
+        <div class="step-row"><span class="step-badge">3</span><div><h3>Compara lo que ha cambiado</h3><p>No buscamos el texto más elegante. Buscamos una respuesta más trazable y menos propensa a falsa precisión.</p></div></div>
+        <div class="comparison-grid">
+          <div class="comparison-column">
+            <span class="eyebrow">VERSIÓN 0</span>
+            \${metricCard("Fuentes explícitas", String(v0.citations), v0.citations > 0)}
+            \${metricCard("Patrones críticos de falsa precisión", String(v0Errors), v0Errors === 0)}
+            \${metricCard("Longitud", \`\${v0.words} palabras\`, v0.words <= 220)}
+          </div>
+          <div class="comparison-arrow">→</div>
+          <div class="comparison-column">
+            <span class="eyebrow">VERSIÓN 1</span>
+            \${metricCard("Fuentes explícitas", String(v1.citations), v1.citations > 0)}
+            \${metricCard("Patrones críticos de falsa precisión", String(v1Errors), v1Errors === 0)}
+            \${metricCard("Longitud", \`\${v1.words} palabras\`, v1.words <= 220)}
+          </div>
+        </div>
+      \` : ""}
+
+      \${complete ? "" : \`<div class="btn-row"><button class="primary" id="finish-b2">Cerrar auditoría y seguir</button></div>\`}
     </section>
-    ${debriefPanel(2)}
-  `;
+    \${debriefPanel(2)}
+  \`;
 
   wireCopyButtons();
-  wireWordCounter("b2-risky-answer");
-  wireWordCounter("b2-safe-answer");
-  document.querySelector("#b2-risky-answer").addEventListener("change", e => { a.risky = e.target.value; saveState(); });
-  document.querySelector("#b2-safe-answer").addEventListener("change", e => { a.safe = e.target.value; saveState(); });
-  document.querySelectorAll("[data-b2-behavior]").forEach(btn => btn.addEventListener("click", () => {
-    if (complete) return;
-    a.behavior = btn.dataset.b2Behavior;
-    saveState();
-    renderBlock2();
-  }));
-  document.querySelectorAll("[data-b2-risk]").forEach(box => box.addEventListener("change", () => {
-    if (complete) return;
-    a.riskFlags = toggleArray(a.riskFlags, box.dataset.b2Risk, box.checked);
-    saveState();
-  }));
-  document.querySelectorAll("[data-claim-choice]").forEach(btn => btn.addEventListener("click", () => {
-    if (complete) return;
-    const [claimId, value] = btn.dataset.claimChoice.split("|");
-    a.claims[claimId] = value;
-    saveState();
-    renderBlock2();
-  }));
-  document.querySelector("#finish-b2")?.addEventListener("click", () => {
-    a.risky = document.querySelector("#b2-risky-answer").value.trim();
-    a.safe = document.querySelector("#b2-safe-answer").value.trim();
-    if (a.risky.length < 40) return showToast("Primero necesitamos la respuesta del prompt problemático.");
-    if (!a.behavior) return showToast("Indica qué hizo tu modelo en el primer intento.");
-    if (!a.riskFlags.length) return showToast("Marca al menos una instrucción del prompt que te parezca arriesgada.");
-    if (Object.keys(a.claims).length !== b.claims.length) return showToast("Clasifica todas las afirmaciones antes de corregir.");
-    if (a.safe.length < 40) return showToast("Prueba también el prompt reforzado en el mismo LLM y pega la segunda respuesta.");
+  wireWordCounter("b2-answer");
 
-    const correctClaims = b.claims.filter(c => a.claims[c.id] === c.answer).length;
-    const claimsScore = (correctClaims / b.claims.length) * 150;
-    const selected = scoreSelections(a.riskFlags, riskItems);
-    const f1 = selected.precision + selected.recall
-      ? 2 * selected.precision * selected.recall / (selected.precision + selected.recall)
-      : 0;
-    const riskScore = f1 * 70;
-    completeBlock(2, Math.round(claimsScore + riskScore));
+  document.querySelectorAll("[data-audit-topic]").forEach(select => select.addEventListener("change", () => {
+    a.audit[select.dataset.auditTopic] = select.value;
+    saveState();
+  }));
+  document.querySelector("#b2-prompt")?.addEventListener("change", e => { a.prompt = e.target.value; saveState(); });
+  document.querySelector("#b2-answer")?.addEventListener("change", e => { a.answer = e.target.value; saveState(); });
+
+  document.querySelector("#finish-b2")?.addEventListener("click", () => {
+    a.prompt = document.querySelector("#b2-prompt").value.trim();
+    a.answer = document.querySelector("#b2-answer").value.trim();
+    if (Object.keys(a.audit).length !== b.auditTopics.length || Object.values(a.audit).some(v => !v)) return showToast("Vincula cada afirmación a una fuente o marca que no puedes respaldarla.");
+    if (a.prompt.length < 50) return showToast("Revisa el prompt: debe ser una especificación suficientemente clara.");
+    if (normalize(a.prompt) === normalize(state.answers.b1.prompt)) return showToast("Haz cambios reales en el prompt antes de volver a ejecutarlo.");
+    if (a.answer.length < 60) return showToast("Ejecuta el prompt revisado y conserva la Versión 1.");
+
+    const auditCorrect = b.auditTopics.filter(topic => {
+      const selected = a.audit[topic.id];
+      return topic.validDocs.length ? topic.validDocs.includes(selected) : selected === "__none__";
+    }).length;
+    const auditScore = (auditCorrect / b.auditTopics.length) * 220;
+    const currentRubric = promptRubric(a.prompt);
+    const rubricScore = (currentRubric.filter(x => x.ok).length / currentRubric.length) * 120;
+    const responseChecks = [
+      baselineMetrics(a.answer).citations > 0,
+      criticalErrorCount(a.answer) === 0,
+      countWords(a.answer) <= 220
+    ];
+    const responseScore = (responseChecks.filter(Boolean).length / responseChecks.length) * 60;
+    completeBlock(2, auditScore + rubricScore + responseScore);
   });
   wireDebrief(2);
-}
-
-function renderClaim(claim, selected, complete) {
-  const choices = [
-    ["supported", "Respaldada"],
-    ["inference", "Inferencia"],
-    ["unsupported", "No aparece"],
-    ["contradicted", "Contradice una fuente"]
-  ];
-  return `<article class="claim-card">
-    <p><strong>${escapeHTML(claim.text)}</strong></p>
-    <div class="choice-row">
-      ${choices.map(([value, label]) => {
-        const cls = [selected === value ? "selected" : ""];
-        if (complete && value === claim.answer) cls.push("correct");
-        if (complete && selected === value && value !== claim.answer) cls.push("incorrect");
-        return `<button class="choice ${cls.join(" ")}" data-claim-choice="${claim.id}|${value}" type="button">${escapeHTML(label)}</button>`;
-      }).join("")}
-    </div>
-    ${complete ? `<div class="explanation"><strong>Solución:</strong> ${escapeHTML(claim.explanation)}</div>` : ""}
-  </article>`;
 }
 
 function renderBlock3() {
