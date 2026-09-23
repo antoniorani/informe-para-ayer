@@ -852,7 +852,7 @@ function renderBlock2() {
       ${answerBox("b2-answer", a.answer, "Ejecuta el prompt revisado. Las fuentes seleccionadas se enviarán automáticamente junto con él.", complete)}
 
       <div class="prompt-rubric">
-        <div class="mini-title">Rúbrica del prompt · aparece después de intentarlo</div>
+        <div class="mini-title">Rúbrica del prompt · se actualiza en tiempo real</div>
         <div class="result-list">
           ${rubric.map(item => `<div class="result-item ${item.ok ? "pass" : "fail"}" data-b2-rubric="${item.id}"><span class="result-icon">${item.ok ? "✓" : "✕"}</span><span>${escapeHTML(item.label)}</span></div>`).join("")}
         </div>
