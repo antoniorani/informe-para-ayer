@@ -29,7 +29,7 @@ No enseñes una plantilla de prompt todavía.
 
 El alumno ve frases de su Versión 0 asociadas a seis temas críticos. Para cada una, **no tiene que copiar ninguna fuente**: selecciona un documento en el desplegable y la web muestra inmediatamente el texto del documento debajo para poder comprobarlo. También puede abrir el expediente completo desde el propio bloque.
 
-Después mejora su prompt y genera una Versión 1. **Las fuentes seleccionadas arriba se adjuntan automáticamente** al pulsar «Ejecutar con Gemini» o «Copiar», de modo que el alumno no tiene que pegar el contenido de los documentos en el prompt. Puede desplegar «Ver el prompt completo que recibirá el LLM» para comprobar exactamente qué contexto se enviará.
+Después mejora su prompt y genera una Versión 1. **Las fuentes seleccionadas arriba se adjuntan automáticamente** al pulsar «Ejecutar con Gemini» o «Copiar», de modo que el alumno no tiene que pegar el contenido de los documentos en el prompt. Puede desplegar «Ver el prompt completo que recibirá el LLM» para comprobar exactamente qué contexto se enviará. La rúbrica del apartado 2 se actualiza en tiempo real; los criterios de uso y cita de fuentes se consideran cumplidos cuando la web ya está adjuntando automáticamente esas fuentes.
 
 Claves de corrección:
 
@@ -101,3 +101,8 @@ La secuencia que debería quedar fijada es:
 **entender el encargo → formular criterios → ejecutar → contrastar evidencias → validar → corregir → actualizar si cambia la información → entregar.**
 
 La idea final no es «usar un chat», sino diseñar un sistema de trabajo con instrucciones, evidencias, validadores, seguridad y revisión humana.
+
+
+## Navegación flexible
+
+Todos los bloques incluyen una opción **Continuar igualmente** (en el último, **Finalizar igualmente**). Úsala si un alumno se atasca, el modelo responde mal o no hay tiempo para completar la validación. La web conserva una puntuación parcial basada en lo que haya hecho hasta ese momento y permite seguir con la historia sin bloquear la práctica.
