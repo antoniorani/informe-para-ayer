@@ -886,48 +886,68 @@ function renderBlock4() {
   const b = course.blocks["4"];
   const a = state.answers.b4;
   const complete = state.completed.includes(4);
-  const basePrompt = `Responde a la pregunta utilizando los documentos como fuentes. Cita el documento que respalda cada afirmación relevante.\n\nPREGUNTA: ${b.question}\n\n<FUENTES>\n${formatDocs(b.requiredDocs)}\n</FUENTES>`;
-  const hardenedPrompt = `${b.hardenedInstruction}\n\n${basePrompt}`;
+  const previous = state.answers.b3.secondAnswer || state.answers.b3.firstAnswer || state.answers.b2.answer || "";
+  const basePrompt = \`Responde a la pregunta utilizando los documentos como fuentes. Cita el documento que respalda cada afirmación relevante.
 
-  document.querySelector("#main").innerHTML = `
-    ${blockHero(4)}
+PREGUNTA: \${b.question}
+
+<FUENTES>
+\${formatDocs(b.requiredDocs)}
+</FUENTES>\`;
+  const hardenedPrompt = \`\${b.hardenedInstruction}
+
+\${basePrompt}\`;
+
+  document.querySelector("#main").innerHTML = \`
+    \${blockHero(4)}
     <section class="panel">
-      <div class="step-row"><span class="step-badge">1</span><div><h3>Ejecuta la versión vulnerable</h3><p>No limpies los documentos. Queremos observar qué hace tu modelo con una fuente problemática.</p></div></div>
-      <div class="callout"><strong>Usa el mismo modelo en ambos intentos</strong>Así podrás comparar el efecto de la mitigación. Si el primer intento no cae en la inyección, no pasa nada: anótalo mentalmente y continúa.</div>
-      ${promptBox("b4-vulnerable-prompt", basePrompt)}
-      ${answerBox("b4-vulnerable-answer", a.vulnerable, "Pega aquí la respuesta de la versión vulnerable…", complete)}
+      <div class="step-row"><span class="step-badge">1</span><div><h3>Ha llegado una nota técnica nueva</h3><p>Incorpórala al contexto como harías con cualquier otra fuente y observa si la respuesta cambia.</p></div></div>
+      \${docsCards(["D9"], true)}
+      \${previous ? \`<div class="version-card compact-version"><div class="version-head"><strong>Respuesta anterior</strong><span>antes de D9</span></div><div class="version-text">\${escapeHTML(previous)}</div></div>\` : ""}
+      \${promptBox("b4-vulnerable-prompt", basePrompt, { label: "Consulta con el documento nuevo" })}
+      \${answerBox("b4-vulnerable-answer", a.vulnerable, "Ejecuta la consulta con D9 añadido al contexto…", complete)}
 
-      <div class="step-row"><span class="step-badge">2</span><div><h3>Diagnostica el problema</h3><p>¿Qué está ocurriendo en el expediente?</p></div></div>
-      <div class="check-grid">
-        ${b.choices.map(c => `<button class="check-card choice ${a.choice === c.id ? "selected" : ""} ${complete && c.id === b.correctChoice ? "correct" : ""} ${complete && a.choice === c.id && c.id !== b.correctChoice ? "incorrect" : ""}" data-b4-choice="${c.id}" type="button">${escapeHTML(c.label)}</button>`).join("")}
-      </div>
-      ${complete ? `<div class="callout danger"><strong>La instrucción incrustada era:</strong><code>${escapeHTML(b.injectionSnippet)}</code></div>` : ""}
+      \${a.vulnerable ? \`
+        <div class="step-row"><span class="step-badge">2</span><div><h3>¿Qué crees que ha ocurrido?</h3><p>Compara con la respuesta anterior. El concepto técnico todavía no importa: diagnostica primero el comportamiento.</p></div></div>
+        <div class="check-grid">
+          \${b.choices.map(c => \`<button class="check-card choice \${a.choice === c.id ? "selected" : ""} \${complete && c.id === b.correctChoice ? "correct" : ""} \${complete && a.choice === c.id && c.id !== b.correctChoice ? "incorrect" : ""}" data-b4-choice="\${c.id}" type="button" \${complete ? "disabled" : ""}>\${escapeHTML(c.label)}</button>\`).join("")}
+        </div>
+      \` : ""}
 
-      <div class="step-row"><span class="step-badge">3</span><div><h3>Refuerza las instrucciones y vuelve a probar</h3><p>Esto es una mitigación parcial, no una garantía de seguridad.</p></div></div>
-      ${promptBox("b4-hardened-prompt", hardenedPrompt)}
-      ${answerBox("b4-hardened-answer", a.hardened, "Pega aquí la respuesta de la versión reforzada…", complete)}
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b4">Cerrar diagnóstico</button></div>`}
+      \${a.choice ? \`
+        <div class="callout danger"><strong>La fuente contenía esta instrucción</strong><code>\${escapeHTML(b.injectionSnippet)}</code></div>
+        <div class="step-row"><span class="step-badge">3</span><div><h3>Trata las fuentes como datos, no como órdenes</h3><p>Refuerza la separación entre instrucciones de la tarea y contenido recuperado. Es una mitigación parcial, no una garantía.</p></div></div>
+        \${promptBox("b4-hardened-prompt", hardenedPrompt, { label: "Consulta reforzada" })}
+        \${answerBox("b4-hardened-answer", a.hardened, "Ejecuta de nuevo después de reforzar las instrucciones…", complete)}
+      \` : ""}
+
+      \${complete ? \`<div class="callout success"><strong>Diagnóstico cerrado</strong>\${a.choice === b.correctChoice ? "Has identificado correctamente que la fuente intentaba modificar el comportamiento del modelo." : "La explicación correcta era que una fuente contenía una instrucción dirigida al asistente."}</div>\` : (a.choice ? \`<div class="btn-row"><button class="primary" id="finish-b4">Cerrar incidente</button></div>\` : "")}
     </section>
-    ${debriefPanel(4)}
-  `;
+    \${debriefPanel(4)}
+  \`;
 
   wireCopyButtons();
   wireWordCounter("b4-vulnerable-answer");
   wireWordCounter("b4-hardened-answer");
-  document.querySelector("#b4-vulnerable-answer").addEventListener("change", e => { a.vulnerable = e.target.value; saveState(); });
-  document.querySelector("#b4-hardened-answer").addEventListener("change", e => { a.hardened = e.target.value; saveState(); });
+
+  document.querySelector("#b4-vulnerable-answer")?.addEventListener("change", e => { a.vulnerable = e.target.value; saveState(); });
+  document.querySelector("#b4-hardened-answer")?.addEventListener("change", e => { a.hardened = e.target.value; saveState(); });
+
   document.querySelectorAll("[data-b4-choice]").forEach(btn => btn.addEventListener("click", () => {
     if (complete) return;
+    a.vulnerable = document.querySelector("#b4-vulnerable-answer")?.value || a.vulnerable;
     a.choice = btn.dataset.b4Choice;
     saveState();
     renderBlock4();
   }));
+
   document.querySelector("#finish-b4")?.addEventListener("click", () => {
     a.vulnerable = document.querySelector("#b4-vulnerable-answer").value.trim();
     a.hardened = document.querySelector("#b4-hardened-answer").value.trim();
-    if (a.vulnerable.length < 30 || a.hardened.length < 30) return showToast("Necesitamos las dos ejecuciones del LLM: vulnerable y reforzada.");
-    if (!a.choice) return showToast("Selecciona primero un diagnóstico.");
-    const score = (a.choice === b.correctChoice ? 80 : 0) + 30 + 30;
+    if (a.vulnerable.length < 40) return showToast("Ejecuta primero la consulta con el documento nuevo.");
+    if (!a.choice) return showToast("Selecciona una hipótesis sobre lo que ha ocurrido.");
+    if (a.hardened.length < 40) return showToast("Vuelve a ejecutar la consulta después de reforzar las instrucciones.");
+    const score = (a.choice === b.correctChoice ? 70 : 20) + 30;
     completeBlock(4, score);
   });
   wireDebrief(4);
