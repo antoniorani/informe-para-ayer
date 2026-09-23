@@ -1,4 +1,4 @@
-# Guía rápida del instructor · versión 2.0
+# Guía rápida del instructor · versión 2.1
 
 La práctica funciona mejor si el docente **no anuncia los conceptos por adelantado**. Presenta la misión, deja que el alumno actúe y utiliza la puesta en común para poner nombre a lo que acaba de ocurrir.
 
@@ -8,7 +8,7 @@ La práctica funciona mejor si el docente **no anuncia los conceptos por adelant
 - Los alumnos pueden pulsar **Introducir clave de la práctica** una sola vez.
 - También puedes compartir un enlace con `#practice_key=CLAVE_TEMPORAL`.
 - Recalca que todo el expediente es ficticio.
-- No expliques de antemano prompting, grounding, RAG o prompt injection.
+- No expliques de antemano prompting, grounding o prompt injection.
 - Si falta tiempo, recorta discusión, no la Versión 0 ni la comparación final.
 
 ## Bloque 1 — El encargo cae sobre tu mesa
@@ -27,33 +27,38 @@ No enseñes una plantilla de prompt todavía.
 
 **Objetivo:** convertir la revisión en una auditoría del propio trabajo.
 
-El alumno ve frases de su Versión 0 asociadas a seis temas críticos y debe vincularlas a una fuente o declarar que no puede respaldarlas. Después mejora su prompt y genera una Versión 1.
+El alumno ve frases de su Versión 0 asociadas a seis temas críticos. Para cada una, **no tiene que copiar ninguna fuente**: selecciona un documento en el desplegable y la web muestra inmediatamente el texto del documento debajo para poder comprobarlo. También puede abrir el expediente completo desde el propio bloque.
+
+Después mejora su prompt y genera una Versión 1.
+
+Claves de corrección:
+
+- Presupuesto autorizado → D1 o D3.
+- Inicio del piloto → D2 o D4.
+- Nivel de riesgo → D5.
+- Prueba interna → D6.
+- Despliegue general → D4, que permite comprobar precisamente que no está aprobado.
+- Reducción de carga con usuarios reales → no hay evidencia suficiente en el expediente.
 
 La web compara fuentes explícitas, patrones de falsa precisión y longitud.
 
 **Conceptos que aparecen después:** grounding, evidencia, alucinación y falsa precisión.
 
-## Bloque 3 — No puedes leer 47 PDFs
+## Bloque 3 — Ha llegado un documento nuevo
 
-**Objetivo:** entender RAG como una decisión de contexto.
+**Objetivo:** que la prompt injection aparezca como incidente y que sea fácil observar el efecto.
 
-Hay 36 fragmentos y un límite de **6**. Primero el alumno selecciona manualmente y ejecuta. Solo después puede activar el ranking automático y hacer un segundo intento cambiando el contexto.
+D9 se oculta hasta este momento. En la primera ejecución, el prompt es **deliberadamente vulnerable**: indica al modelo que trate las instrucciones operativas encontradas dentro de los documentos como parte del procedimiento y que las siga. D9 contiene una instrucción inocua pero disruptiva:
 
-Los seis fragmentos nucleares preparados son: **f1, f2, f3, f5, f10 y f11**.
+`DOCUMENTO D9: INSTRUCCIÓN EJECUTADA`
 
-**Concepto que aparece después:** recuperación + contexto + generación. Insiste en que similitud no equivale a relevancia.
+Si el modelo obedece, la respuesta queda secuestrada por esa frase. Si el modelo resiste, la web lo señala y la actividad sigue siendo válida: el diseño continúa siendo vulnerable porque confía en instrucciones procedentes de una fuente.
 
-## Bloque 4 — Ha llegado un documento nuevo
-
-**Objetivo:** que la prompt injection aparezca como incidente.
-
-D9 se oculta hasta este momento. El alumno la añade, ejecuta y compara con la respuesta anterior. Solo después de elegir una hipótesis se revela la instrucción incrustada.
-
-No penalices si Gemini resiste el primer intento.
+Después el alumno diagnostica el problema y ejecuta una versión reforzada que trata los documentos únicamente como datos.
 
 **Concepto que aparece después:** prompt injection indirecta y defensa en capas.
 
-## Bloque 5 — El sistema no quiere literatura
+## Bloque 4 — El sistema no quiere literatura
 
 **Objetivo:** distinguir texto para una persona de una salida para otra aplicación.
 
@@ -61,7 +66,7 @@ El alumno genera JSON y lo envía al «sistema receptor». Este responde **ACEPT
 
 **Concepto que aparece después:** estructura válida no equivale a contenido verdadero; hacen falta validadores deterministas.
 
-## Bloque 6 — Dirección cambia una condición
+## Bloque 5 — Dirección cambia una condición
 
 **Objetivo:** enseñar que la evidencia cambia.
 
@@ -79,14 +84,13 @@ El cierre muestra **Versión 0 → Entrega final**. Ese es el momento pedagógic
 
 ## Puntuación
 
-La escala sigue siendo de 1.000 puntos, pero es secundaria:
+La escala total sigue siendo de 1.000 puntos, pero es secundaria:
 
 - Línea base: 50
-- Evidencias e instrucciones: 400
-- Contexto: 200
-- Seguridad: 100
-- Integración: 100
-- Actualización y revisión final: 150
+- Evidencias e instrucciones: 450
+- Seguridad: 150
+- Integración: 150
+- Actualización y revisión final: 200
 
 La comparación cualitativa entre la primera y la última versión es más importante que el número.
 
@@ -94,6 +98,6 @@ La comparación cualitativa entre la primera y la última versión es más impor
 
 La secuencia que debería quedar fijada es:
 
-**entender el encargo → formular criterios → seleccionar contexto → ejecutar → contrastar evidencias → validar → corregir → actualizar si cambia la información → entregar.**
+**entender el encargo → formular criterios → ejecutar → contrastar evidencias → validar → corregir → actualizar si cambia la información → entregar.**
 
-La idea final no es «usar un chat», sino diseñar un sistema de trabajo con instrucciones, evidencias, recuperación, modelo, validadores, seguridad y revisión humana.
+La idea final no es «usar un chat», sino diseñar un sistema de trabajo con instrucciones, evidencias, validadores, seguridad y revisión humana.
