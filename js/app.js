@@ -957,44 +957,79 @@ function renderBlock5() {
   const b = course.blocks["5"];
   const a = state.answers.b5;
   const complete = state.completed.includes(5);
-  if (!a.prompt) a.prompt = `${b.promptTemplate}\n\nESQUEMA ESPERADO:\n${JSON.stringify(b.schema, null, 2)}\n\nTEXTO FUENTE:\n${docsById.get(b.sourceDoc).content}`;
-  const last = a.lastValidation;
+  if (!a.prompt) a.prompt = \`\${b.promptTemplate}
 
-  document.querySelector("#main").innerHTML = `
-    ${blockHero(5)}
+ESQUEMA ESPERADO:
+\${JSON.stringify(b.schema, null, 2)}
+
+TEXTO FUENTE:
+\${docsById.get(b.sourceDoc).content}\`;
+
+  document.querySelector("#main").innerHTML = \`
+    \${blockHero(5)}
     <section class="panel">
-      <div class="step-row"><span class="step-badge">1</span><div><h3>Haz que el LLM produzca una salida utilizable</h3><p>Puedes editar el prompt. El objetivo es que otra aplicación pueda consumir el resultado sin tener que interpretar prosa.</p></div></div>
-      ${docsCards([b.sourceDoc], true)}
-      ${promptBox("b5-prompt", a.prompt, { editable: true, readOnly: complete })}
-      <div class="code-block">${escapeHTML(JSON.stringify(b.schema, null, 2))}</div>
+      <div class="step-row"><span class="step-badge">1</span><div><h3>Ahora el consumidor no es una persona</h3><p>El sistema receptor solo acepta una estructura concreta. Genera la salida con el LLM y deja que la aplicación decida si puede consumirla.</p></div></div>
+      \${docsCards([b.sourceDoc], true)}
+      \${promptBox("b5-prompt", a.prompt, { editable: true, label: "Prompt para extracción estructurada", readOnly: complete })}
+      <div class="code-block">\${escapeHTML(JSON.stringify(b.schema, null, 2))}</div>
 
-      <div class="step-row"><span class="step-badge">2</span><div><h3>Pega el JSON y valídalo</h3><p>Un JSON puede ser sintácticamente perfecto y estar factualmente mal. Comprobaremos las dos cosas.</p></div></div>
-      ${answerBox("b5-answer", a.llm, "Pega aquí únicamente el JSON devuelto por tu LLM…", complete)}
-      ${last ? `<div class="callout ${last.success ? "success" : "warning"}"><strong>Resultado del intento ${a.attempts}</strong><div class="result-list">${last.results.map(r => resultItem(r.ok, r.label)).join("")}</div></div>` : ""}
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="validate-b5">Validar JSON</button><span class="subtle">Intentos: ${a.attempts}</span></div>`}
+      <div class="step-row"><span class="step-badge">2</span><div><h3>Envía el resultado al sistema receptor</h3><p>El receptor comprobará sintaxis, nombres de campo, tipos, fechas y valores del expediente.</p></div></div>
+      \${answerBox("b5-answer", a.llm, "La salida de Gemini debe ser únicamente el JSON que intentarías integrar…", complete)}
+
+      <div class="receiver \${a.lastValidation ? (a.lastValidation.success ? "accepted" : "rejected") : ""}">
+        <div class="receiver-head">
+          <span class="status-light"></span>
+          <strong>SISTEMA ORIÓN · IMPORTADOR DE PROYECTOS</strong>
+        </div>
+        \${!a.lastValidation ? \`<div class="receiver-line muted">Esperando envío…</div>\` : a.lastValidation.success
+          ? \`<div class="receiver-line ok">ACEPTADO · registro válido y coherente con la fuente.</div>\`
+          : \`<div class="receiver-line error">RECHAZADO · corrige los errores antes de reintentar.</div>
+             <div class="receiver-errors">\${a.lastValidation.results.filter(r => !r.ok).map(r => \`<div>→ \${escapeHTML(r.label)}</div>\`).join("")}</div>\`
+        }
+      </div>
+
+      \${a.history?.length ? \`
+        <div class="attempt-history">
+          <div class="mini-title">Historial de integración</div>
+          \${a.history.map(item => \`<div class="attempt-row"><strong>Intento \${item.attempt}</strong><span class="\${item.success ? "attempt-ok" : "attempt-bad"}">\${item.success ? "ACEPTADO" : "RECHAZADO"}</span><span>\${escapeHTML(item.summary)}</span></div>\`).join("")}
+        </div>
+      \` : ""}
+
+      \${complete ? "" : \`<div class="btn-row"><button class="primary" id="validate-b5">Enviar al sistema</button><span class="subtle">Intentos: \${a.attempts}</span></div>\`}
     </section>
-    ${debriefPanel(5)}
-  `;
+    \${debriefPanel(5)}
+  \`;
 
   wireCopyButtons();
   wireWordCounter("b5-answer");
-  document.querySelector("#b5-prompt").addEventListener("change", e => { a.prompt = e.target.value; saveState(); });
-  document.querySelector("#b5-answer").addEventListener("change", e => { a.llm = e.target.value; saveState(); });
+  document.querySelector("#b5-prompt")?.addEventListener("change", e => { a.prompt = e.target.value; saveState(); });
+  document.querySelector("#b5-answer")?.addEventListener("change", e => { a.llm = e.target.value; saveState(); });
+
   document.querySelector("#validate-b5")?.addEventListener("click", () => {
     a.prompt = document.querySelector("#b5-prompt").value;
     a.llm = document.querySelector("#b5-answer").value.trim();
-    if (!a.llm) return showToast("Pega primero la salida de tu LLM.");
+    if (!a.llm) return showToast("Genera primero una salida para enviarla al sistema.");
+
     a.attempts += 1;
     const validation = validateJson(a.llm, b.expected, b.schema);
     const success = validation.validJson && validation.results.every(r => r.ok);
     a.lastValidation = { results: validation.results, success };
+    const failures = validation.results.filter(r => !r.ok).map(r => r.label);
+    a.history ||= [];
+    a.history.push({
+      attempt: a.attempts,
+      success,
+      summary: success ? "Sin errores detectados" : failures.slice(0, 2).join(" · ") || "JSON no aceptado"
+    });
+    a.history = a.history.slice(-5);
     saveState();
+
     if (success) {
-      const score = Math.max(100, BLOCK_MAX[5] - Math.max(0, a.attempts - 1) * 8);
+      const score = Math.max(70, BLOCK_MAX[5] - Math.max(0, a.attempts - 1) * 6);
       completeBlock(5, score);
     } else {
       renderBlock5();
-      showToast("Todavía no. Corrige el prompt o vuelve a intentarlo con tu LLM.");
+      showToast("El sistema ha rechazado la salida. Usa los errores para iterar.");
     }
   });
   wireDebrief(5);
