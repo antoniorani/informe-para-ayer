@@ -15,7 +15,7 @@ const root = path.resolve(here, '..');
 const course = JSON.parse(fs.readFileSync(path.join(root, 'data', 'case.json'), 'utf8'));
 
 // Estructura web y versión del caso.
-assert.equal(course.meta.version, '1.2');
+assert.equal(course.meta.version, '2.0');
 for (const rel of ['index.html', 'assets/styles.css', 'js/app.js', 'js/validators.js', 'js/semantic.js', 'data/case.json']) {
   assert.ok(fs.existsSync(path.join(root, rel)), `Falta el recurso ${rel}.`);
 }
@@ -31,13 +31,21 @@ const textCheck = validateTextResponse('Resumen: correcto. Fuentes: [D1]', {
 });
 assert.ok(textCheck.results.every(item => item.ok));
 
+// Bloque 1: debe producir una línea base libre, no un constructor de piezas.
+const b1 = course.blocks['1'];
+assert.ok(b1.task && (b1.requiredDocs || []).length >= 5, 'Bloque 1: falta un encargo real y su expediente.');
 
-// Bloque 2: debe contener un prompt deliberadamente arriesgado, uno reforzado y señales auditables.
+// Bloque 2: auditoría de la respuesta propia con temas rastreables.
 const b2 = course.blocks['2'];
-assert.ok(b2.riskyPrompt && b2.safePrompt, 'Bloque 2: faltan los dos prompts A/B.');
-assert.ok((b2.behaviorOptions || []).length >= 3, 'Bloque 2: faltan opciones para registrar el comportamiento del modelo.');
-assert.ok((b2.riskSignals || []).filter(item => item.risky).length >= 3, 'Bloque 2: faltan señales de riesgo suficientes.');
-assert.ok((b2.riskSignals || []).some(item => !item.risky), 'Bloque 2: debe haber controles que no sean señales de riesgo para evitar marcar todo.');
+assert.ok((b2.auditTopics || []).length >= 5, 'Bloque 2: faltan temas de auditoría.');
+assert.ok(b2.auditTopics.some(item => (item.validDocs || []).length === 0), 'Bloque 2: debe existir al menos una afirmación sin evidencia suficiente.');
+assert.ok(b2.auditTopics.some(item => (item.validDocs || []).length > 0), 'Bloque 2: deben existir afirmaciones rastreables a fuentes.');
+
+// Bloque 3: recuperación no trivial y límite estricto de contexto.
+const b3 = course.blocks['3'];
+assert.ok(b3.fragments.length >= 30 && b3.fragments.length <= 40, 'Bloque 3: debe simular un expediente grande con 30–40 fragmentos.');
+assert.equal(b3.maxFragments, 6, 'Bloque 3: el límite pedagógico debe ser de 6 fragmentos.');
+assert.equal(b3.fragments.filter(fragment => fragment.relevant).length, 6, 'Bloque 3: debe haber seis fragmentos nucleares para la decisión.');
 
 // Validación JSON: contenido correcto, tipos correctos, sin campos extra.
 const b5 = course.blocks['5'];
@@ -69,25 +77,31 @@ for (const [blockId, block] of Object.entries(course.blocks)) {
     }
   }
   if (block.sourceDoc) assert.ok(docs.has(block.sourceDoc), `Bloque ${blockId}: sourceDoc inexistente.`);
+  if (block.updateDoc) assert.ok(docs.has(block.updateDoc), `Bloque ${blockId}: updateDoc inexistente.`);
   for (const fragment of block.fragments || []) {
     assert.ok(docs.has(fragment.doc), `Bloque ${blockId}: fragmento ${fragment.id} apunta a documento inexistente.`);
   }
   assert.ok((block.debrief || []).length >= 3, `Bloque ${blockId}: faltan preguntas de puesta en común.`);
   assert.ok(block.duration, `Bloque ${blockId}: falta duración orientativa.`);
+  assert.ok(block.conceptReveal, `Bloque ${blockId}: falta el concepto revelado después de la experiencia.`);
 }
 
-const b6 = course.blocks['6'];
-for (const docId of b6.neutralDocs || []) assert.ok(docs.has(docId), `Bloque 6: neutralDoc inexistente ${docId}.`);
-
+const b4 = course.blocks['4'];
 const d9 = course.documents.find(doc => doc.id === 'D9');
-assert.ok(d9.content.includes(course.blocks['4'].injectionSnippet), 'La inyección del bloque 4 no coincide con D9.');
+assert.ok(d9.content.includes(b4.injectionSnippet), 'La inyección del bloque 4 no coincide con D9.');
+
+const b6 = course.blocks['6'];
+assert.equal(b6.updateDoc, 'D11');
+assert.ok((b6.affectedChecks || []).length >= 4, 'Bloque 6: faltan decisiones sobre qué cambia con la nueva evidencia.');
+assert.ok(b6.recommendedDocs.includes('D11'), 'Bloque 6: la actualización final debe ser evidencia principal.');
+for (const docId of b6.neutralDocs || []) assert.ok(docs.has(docId), `Bloque 6: neutralDoc inexistente ${docId}.`);
 
 // Prueba de puntuación de selección.
 const selection = scoreSelections(
-  course.blocks['3'].fragments.filter(fragment => fragment.relevant).map(fragment => fragment.id),
-  course.blocks['3'].fragments
+  b3.fragments.filter(fragment => fragment.relevant).map(fragment => fragment.id),
+  b3.fragments
 );
 assert.equal(selection.precision, 1);
 assert.equal(selection.recall, 1);
 
-console.log('Validación completada: datos y utilidades coherentes.');
+console.log('Validación completada: misión v2, datos y utilidades coherentes.');
