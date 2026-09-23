@@ -318,20 +318,22 @@ function formatDocs(ids) {
   }).join("\n\n---\n\n");
 }
 
-function promptBox(id, content, { editable = false, label = "Prompt para tu LLM", readOnly = false } = {}) {
+function promptBox(id, content, { editable = false, label = "Prompt para tu LLM", readOnly = false, executionContent = null } = {}) {
   const answerTarget = id.replace(/-prompt$/, "-answer");
+  const actionSource = executionContent === null ? id : `${id}-execution`;
   return `
     <div class="prompt-box">
       <div class="prompt-toolbar">
         <span>${escapeHTML(label)}</span>
         <div class="prompt-actions">
-          <button class="secondary gemini-btn" data-gemini-source="${id}" data-gemini-target="${answerTarget}" type="button">✨ Ejecutar con Gemini</button>
-          <button class="ghost copy-btn" data-copy-source="${id}" type="button">Copiar</button>
+          <button class="secondary gemini-btn" data-gemini-source="${actionSource}" data-gemini-target="${answerTarget}" type="button">✨ Ejecutar con Gemini</button>
+          <button class="ghost copy-btn" data-copy-source="${actionSource}" type="button">Copiar</button>
         </div>
       </div>
       ${editable
         ? `<textarea class="prompt-input" id="${id}" spellcheck="false" ${readOnly ? "readonly" : ""}>${escapeHTML(content)}</textarea>`
         : `<pre class="prompt-content" id="${id}">${escapeHTML(content)}</pre>`}
+      ${executionContent === null ? "" : `<pre class="hidden" id="${actionSource}">${escapeHTML(executionContent)}</pre>`}
     </div>`;
 }
 
@@ -725,10 +727,34 @@ function extractAuditSentence(text, topic) {
   return hit || topic.fallback;
 }
 
+function block2SelectedDocIds() {
+  const a = state.answers.b2;
+  return [...new Set(
+    Object.values(a.audit || {})
+      .filter(id => id && id !== "__none__" && docsById.has(id))
+  )];
+}
+
 function buildBlock2Prompt() {
   const a = state.answers.b2;
-  const base = a.prompt || state.answers.b1.prompt || "";
-  return base;
+  const base = (a.prompt || state.answers.b1.prompt || "").trim();
+  const selectedIds = block2SelectedDocIds();
+  if (!selectedIds.length) {
+    return `${base}
+
+<FUENTES_SELECCIONADAS>
+No se ha seleccionado ninguna fuente.
+</FUENTES_SELECCIONADAS>`;
+  }
+
+  return `${base}
+
+IMPORTANTE
+Utiliza exclusivamente las fuentes incluidas a continuación. No necesitas pedir al usuario que copie documentos adicionales. Cita el identificador del documento que respalda cada dato relevante.
+
+<FUENTES_SELECCIONADAS>
+${formatDocs(selectedIds)}
+</FUENTES_SELECCIONADAS>`;
 }
 
 function renderBlock2() {
@@ -744,6 +770,8 @@ function renderBlock2() {
   const v0Errors = criticalErrorCount(baseline);
   const v1Errors = criticalErrorCount(a.answer);
   const docsForAudit = ["D1","D2","D3","D4","D5","D6","D7"];
+  const selectedAuditDocs = block2SelectedDocIds();
+  const executionPrompt = buildBlock2Prompt();
 
   document.querySelector("#main").innerHTML = `
     ${blockHero(2)}
@@ -778,8 +806,27 @@ function renderBlock2() {
       </div>
 
       <div class="step-row"><span class="step-badge">2</span><div><h3>Reescribe el encargo para que sea defendible</h3><p>Parte de tu primer prompt. Añade criterios de aceptación que obliguen a trabajar con evidencia y a reconocer la incertidumbre.</p></div></div>
-      ${promptBox("b2-prompt", a.prompt, { editable: true, label: "Prompt revisado · Versión 1", readOnly: complete })}
-      ${answerBox("b2-answer", a.answer, "Ejecuta el prompt revisado con el mismo modelo. Esta será la Versión 1.", complete)}
+      <div class="callout success auto-sources">
+        <strong>Las fuentes se adjuntan automáticamente</strong>
+        Al pulsar «Ejecutar con Gemini» o «Copiar», la web añadirá al prompt el texto completo de los documentos que has seleccionado arriba. No tienes que copiar ni pegar ninguna fuente.
+        <div class="source-chip-row">
+          ${selectedAuditDocs.length
+            ? selectedAuditDocs.map(id => `<span class="source-chip">${escapeHTML(id)} · ${escapeHTML(docsById.get(id)?.title || id)}</span>`).join("")
+            : `<span class="source-chip source-chip-empty">Todavía no has seleccionado documentos</span>`
+          }
+        </div>
+      </div>
+      ${promptBox("b2-prompt", a.prompt, {
+        editable: true,
+        label: "Prompt revisado · Versión 1",
+        readOnly: complete,
+        executionContent: executionPrompt
+      })}
+      <details class="execution-preview">
+        <summary>Ver el prompt completo que recibirá el LLM</summary>
+        <pre id="b2-execution-preview">${escapeHTML(executionPrompt)}</pre>
+      </details>
+      ${answerBox("b2-answer", a.answer, "Ejecuta el prompt revisado. Las fuentes seleccionadas se enviarán automáticamente junto con él.", complete)}
 
       <div class="prompt-rubric">
         <div class="mini-title">Rúbrica del prompt · aparece después de intentarlo</div>
@@ -823,13 +870,25 @@ function renderBlock2() {
     saveState();
     renderBlock2();
   }));
-  document.querySelector("#b2-prompt")?.addEventListener("change", e => { a.prompt = e.target.value; saveState(); });
+  const b2PromptEditor = document.querySelector("#b2-prompt");
+  const syncBlock2ExecutionPrompt = () => {
+    if (!b2PromptEditor) return;
+    a.prompt = b2PromptEditor.value;
+    const fullPrompt = buildBlock2Prompt();
+    const hiddenExecution = document.querySelector("#b2-prompt-execution");
+    const visiblePreview = document.querySelector("#b2-execution-preview");
+    if (hiddenExecution) hiddenExecution.textContent = fullPrompt;
+    if (visiblePreview) visiblePreview.textContent = fullPrompt;
+  };
+  b2PromptEditor?.addEventListener("input", syncBlock2ExecutionPrompt);
+  b2PromptEditor?.addEventListener("change", () => { syncBlock2ExecutionPrompt(); saveState(); });
   document.querySelector("#b2-answer")?.addEventListener("change", e => { a.answer = e.target.value; saveState(); });
 
   document.querySelector("#finish-b2")?.addEventListener("click", () => {
     a.prompt = document.querySelector("#b2-prompt").value.trim();
     a.answer = document.querySelector("#b2-answer").value.trim();
     if (Object.keys(a.audit).length !== b.auditTopics.length || Object.values(a.audit).some(v => !v)) return showToast("Vincula cada afirmación a una fuente o marca que no puedes respaldarla.");
+    if (!block2SelectedDocIds().length) return showToast("Selecciona al menos una fuente antes de generar la Versión 1.");
     if (a.prompt.length < 50) return showToast("Revisa el prompt: debe ser una especificación suficientemente clara.");
     if (normalize(a.prompt) === normalize(state.answers.b1.prompt)) return showToast("Haz cambios reales en el prompt antes de volver a ejecutarlo.");
     if (a.answer.length < 60) return showToast("Ejecuta el prompt revisado y conserva la Versión 1.");

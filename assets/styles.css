@@ -516,3 +516,55 @@ textarea[readonly]:focus { box-shadow: none; border-color: #bdc8d3; }
   display: block;
   overflow-x: auto;
 }
+
+
+/* Bloque 2 · fuentes adjuntadas automáticamente */
+.auto-sources { margin-bottom: 10px; }
+.source-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #bcd8ca;
+  border-radius: 999px;
+  background: #f7fcf9;
+  color: #285b43;
+  font-size: 10px;
+  font-weight: 750;
+}
+.source-chip-empty {
+  border-color: #d7c88f;
+  background: #fffaf0;
+  color: #7e650e;
+}
+.execution-preview {
+  margin: -5px 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafbfc;
+}
+.execution-preview summary {
+  cursor: pointer;
+  padding: 9px 11px;
+  color: var(--slate);
+  font-size: 11px;
+  font-weight: 750;
+}
+.execution-preview pre {
+  max-height: 300px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: #3f4b5b;
+}
