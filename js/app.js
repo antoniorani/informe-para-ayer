@@ -8,15 +8,15 @@ import {
 } from "./validators.js";
 import { rankFragments } from "./semantic.js";
 
-const STORAGE_KEY = "informe-para-ayer-v1.2";
-const BLOCK_MAX = { 1: 180, 2: 220, 3: 180, 4: 140, 5: 140, 6: 140 };
+const STORAGE_KEY = "informe-para-ayer-v2";
+const BLOCK_MAX = { 1: 50, 2: 400, 3: 200, 4: 100, 5: 100, 6: 150 };
 const BLOCK_SHORT = {
-  1: "Prompting",
-  2: "Alucinaciones",
-  3: "RAG",
-  4: "Prompt injection",
-  5: "JSON",
-  6: "Reto final"
+  1: "Línea base",
+  2: "Evidencias",
+  3: "Contexto",
+  4: "Documento nuevo",
+  5: "Integración",
+  6: "Actualización"
 };
 
 let course = null;
@@ -34,12 +34,12 @@ const defaultState = () => ({
   completed: [],
   scores: {},
   answers: {
-    b1: { initial: "", improved: "", components: [], checklist: [] },
-    b2: { risky: "", safe: "", behavior: "", riskFlags: [], claims: {} },
-    b3: { selected: [], llm: "" },
+    b1: { prompt: "", answer: "", sendNow: "", reasons: "" },
+    b2: { audit: {}, prompt: "", answer: "" },
+    b3: { selected: [], firstSelected: [], firstAnswer: "", firstLocked: false, secondAnswer: "" },
     b4: { vulnerable: "", hardened: "", choice: "" },
-    b5: { prompt: "", llm: "", attempts: 0, lastValidation: null },
-    b6: { selectedDocs: [], prompt: "", llm: "", critical: {} }
+    b5: { prompt: "", llm: "", attempts: 0, lastValidation: null, history: [] },
+    b6: { affected: {}, selectedDocs: [], prompt: "", llm: "", critical: {} }
   }
 });
 
@@ -171,7 +171,14 @@ function wireShell() {
 
 function renderDocsDialog() {
   const list = document.querySelector("#docs-list");
-  list.innerHTML = course.documents.map(doc => `
+  const showD9 = state.currentBlock >= 4 || state.completed.includes(4);
+  const showD11 = state.currentBlock >= 6 || state.completed.includes(6);
+  const visible = course.documents.filter(doc => {
+    if (doc.id === "D9") return showD9;
+    if (doc.id === "D11") return showD11;
+    return true;
+  });
+  list.innerHTML = visible.map(doc => `
     <details>
       <summary>${escapeHTML(doc.id)} · ${escapeHTML(doc.title)}</summary>
       <div class="full-doc">
@@ -185,6 +192,7 @@ function renderDocsDialog() {
 function render() {
   updateChrome();
   renderNav();
+  renderDocsDialog();
   if (state.currentBlock === 0) renderIntro();
   else renderBlock(state.currentBlock);
   document.querySelector("#main").focus({ preventScroll: true });
@@ -237,17 +245,17 @@ function renderIntro() {
   document.querySelector("#main").innerHTML = `
     <section class="panel hero-panel">
       <span class="eyebrow">MISIÓN · ${escapeHTML(course.meta.caseName)}</span>
-      <h1>Bienvenido a la Unidad de Inteligencia Artificial y Otras Cosas que Dirección Quiere para Ayer.</h1>
+      <h1>Un comité en 50 minutos. Un expediente imperfecto. Una respuesta que tendrás que defender.</h1>
       <p class="lead">${escapeHTML(course.caseIntro.mission)}</p>
       <div class="manager-note">“${escapeHTML(course.caseIntro.managerMessage)}”</div>
     </section>
 
     <section class="panel">
-      <h2 class="section-title">Cómo funciona la práctica</h2>
+      <h2 class="section-title">Tu misión</h2>
       <div class="check-grid">
-        ${infoCard("1", "Usa un LLM real", "Cada prompt puede ejecutarse directamente con Gemini 3.5 Flash-Lite. Si quieres comparar modelos, también puedes copiarlo y usar otro LLM.")}
-        ${infoCard("2", "La web organiza y valida", "Aquí seleccionarás fuentes, construirás prompts, recibirás o pegarás respuestas y comprobarás lo que sea verificable sin otra IA.")}
-        ${infoCard("3", "Paramos entre bloques", "Al terminar cada reto aparecerán preguntas de puesta en común. No corras: el debate también puntúa en la vida real, aunque no aquí.")}
+        ${infoCard("1", "Haz un primer intento", "No hay una plantilla perfecta escondida. Empieza como trabajarías normalmente y conserva esa respuesta como Versión 0.")}
+        ${infoCard("2", "Defiende lo que afirmas", "La práctica irá obligándote a rastrear evidencias, elegir contexto, reaccionar a cambios y validar salidas.")}
+        ${infoCard("3", "Observa antes de poner nombre", "Los conceptos aparecerán después de que hayas sufrido el problema o visto una mejora.")}
         ${infoCard("4", "No uses datos reales", "Todo el expediente es ficticio. No pegues información sensible de tu organización en herramientas no autorizadas.")}
       </div>
       <div class="callout ${geminiReady ? "success" : "warning"}">
@@ -258,9 +266,10 @@ function renderIntro() {
         }
         ${geminiReady ? "" : `<div class="btn-row"><button class="secondary" id="intro-practice-key" type="button">Introducir clave de la práctica</button></div>`}
       </div>
+      <div class="callout"><strong>Importante</strong>No intentes adivinar «qué quiere el ejercicio». El primer resultado sirve precisamente como línea base para comparar cómo cambia tu forma de trabajar.</div>
       <div class="btn-row">
-        <button class="primary" id="start-practice">Empezar el expediente →</button>
-        <button class="secondary" id="intro-docs">Ver documentación</button>
+        <button class="primary" id="start-practice">Aceptar el encargo →</button>
+        <button class="secondary" id="intro-docs">Abrir expediente</button>
       </div>
     </section>`;
   document.querySelector("#start-practice").addEventListener("click", () => goBlock(1));
@@ -477,8 +486,9 @@ function debriefPanel(n) {
   return `
     <section class="panel debrief">
       <span class="pause-chip">⏸ PAUSA · PUESTA EN COMÚN</span>
-      <h2>Antes de seguir, comparemos resultados</h2>
-      <p class="subtle">No busques una única respuesta correcta del modelo. Interesa comparar qué decisiones habéis tomado y qué problemas habéis observado.</p>
+      <h2>Ahora sí: pongamos nombre a lo que acaba de ocurrir</h2>
+      ${b.conceptReveal ? `<div class="callout concept-reveal"><strong>Concepto que aparece ahora</strong>${escapeHTML(b.conceptReveal)}</div>` : ""}
+      <p class="subtle">Primero compara decisiones y resultados. La teoría viene después de la experiencia.</p>
       <ul>${b.debrief.map(q => `<li>${escapeHTML(q)}</li>`).join("")}</ul>
       <div class="btn-row">
         ${n < 6 ? `<button class="primary" id="next-block">Continuar cuando lo indique el docente →</button>` : `<button class="secondary" id="export-progress">Exportar mi resultado</button>`}
