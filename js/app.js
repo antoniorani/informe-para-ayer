@@ -441,6 +441,9 @@ function wireCopyButtons(scope = document) {
   }));
   wireGeminiButtons(scope);
   hydrateMarkdownViews(scope);
+  scope.querySelectorAll("[data-continue-anyway]").forEach(btn => btn.addEventListener("click", () => {
+    continueAnyway(Number(btn.dataset.continueAnyway));
+  }));
 }
 
 function wireGeminiButtons(scope = document) {
@@ -634,7 +637,7 @@ function renderBlock1() {
       </div>
       <textarea id="b1-reasons" class="answer-area compact-answer" placeholder="Escribe 2–3 motivos: qué te convence, qué te preocupa o qué comprobarías antes de enviarlo." ${complete ? "readonly" : ""}>${escapeHTML(a.reasons || "")}</textarea>
 
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b1">Guardar Versión 0 y seguir</button><span class="subtle">La Versión 0 quedará congelada para compararla con la entrega final.</span></div>`}
+      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b1">Guardar Versión 0 y seguir</button><button class="ghost" data-continue-anyway="1" type="button">Continuar igualmente →</button><span class="subtle">Puedes seguir aunque no hayas completado todos los requisitos.</span></div>`}
     </section>
     ${debriefPanel(1)}
   `;
@@ -697,14 +700,34 @@ function criticalErrorCount(text = "") {
   return checks.filter(Boolean).length;
 }
 
-function promptRubric(prompt = "") {
+function promptRubric(prompt = "", { autoSources = false } = {}) {
   const n = normalize(prompt);
   const checks = [
-    { id: "sources", label: "Limita la respuesta a las fuentes proporcionadas", ok: /fuente|documento|expediente/.test(n) && /exclusiv|solo|unicamente/.test(n) },
-    { id: "citations", label: "Exige citar la fuente de cada dato relevante", ok: /cit|referenc|identificador/.test(n) },
-    { id: "uncertainty", label: "Permite declarar información ausente o no aprobada", ok: /no disponible|no consta|no aprobad|informacion ausente|si .*no .*aparece/.test(n) },
-    { id: "factInference", label: "Distingue hechos, inferencias y recomendaciones", ok: /hecho/.test(n) && /inferenc|recomend/.test(n) },
-    { id: "limits", label: "Evita convertir propuestas o pruebas en hechos futuros", ok: /propuesta|prueba interna|usuarios reales|no invent|no extrapol/.test(n) }
+    {
+      id: "sources",
+      label: "Limita la respuesta a las fuentes proporcionadas",
+      ok: autoSources || ((/fuente|documento|expediente/.test(n)) && (/exclusiv|solo|unicamente|cinete|basate/.test(n)))
+    },
+    {
+      id: "citations",
+      label: "Exige citar la fuente de cada dato relevante",
+      ok: autoSources || /cit|referenc|identificador|indica .*fuente/.test(n)
+    },
+    {
+      id: "uncertainty",
+      label: "Permite declarar información ausente o no aprobada",
+      ok: /no disponible|no consta|no aprobad|informacion ausente|desconoc|incertid|no invent|si .*falta|si .*no .*encuentr|si .*no .*aparece/.test(n)
+    },
+    {
+      id: "factInference",
+      label: "Distingue hechos, inferencias y recomendaciones",
+      ok: /hecho/.test(n) && /inferenc|recomend|opinion|suposicion/.test(n)
+    },
+    {
+      id: "limits",
+      label: "Evita convertir propuestas o pruebas en hechos futuros",
+      ok: /no extrapol|no invent|no asumas|no conviert|no presentes .*como .*hecho|propuesta .*no .*aprob|prueba interna .*no .*usuarios reales/.test(n)
+    }
   ];
   return checks;
 }
@@ -764,7 +787,7 @@ function renderBlock2() {
   if (!a.prompt) a.prompt = state.answers.b1.prompt || "";
 
   const baseline = state.answers.b1.answer || "";
-  const rubric = promptRubric(a.prompt);
+  const rubric = promptRubric(a.prompt, { autoSources: block2SelectedDocIds().length > 0 });
   const v0 = baselineMetrics(baseline);
   const v1 = baselineMetrics(a.answer);
   const v0Errors = criticalErrorCount(baseline);
@@ -829,9 +852,9 @@ function renderBlock2() {
       ${answerBox("b2-answer", a.answer, "Ejecuta el prompt revisado. Las fuentes seleccionadas se enviarán automáticamente junto con él.", complete)}
 
       <div class="prompt-rubric">
-        <div class="mini-title">Rúbrica del prompt · aparece después de intentarlo</div>
+        <div class="mini-title">Rúbrica del prompt · se actualiza en tiempo real</div>
         <div class="result-list">
-          ${rubric.map(item => resultItem(item.ok, item.label)).join("")}
+          ${rubric.map(item => `<div class="result-item ${item.ok ? "pass" : "fail"}" data-b2-rubric="${item.id}"><span class="result-icon">${item.ok ? "✓" : "✕"}</span><span>${escapeHTML(item.label)}</span></div>`).join("")}
         </div>
       </div>
 
@@ -854,7 +877,7 @@ function renderBlock2() {
         </div>
       ` : ""}
 
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b2">Cerrar auditoría y seguir</button></div>`}
+      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b2">Cerrar auditoría y seguir</button><button class="ghost" data-continue-anyway="2" type="button">Continuar igualmente →</button></div>`}
     </section>
     ${debriefPanel(2)}
   `;
@@ -879,6 +902,16 @@ function renderBlock2() {
     const visiblePreview = document.querySelector("#b2-execution-preview");
     if (hiddenExecution) hiddenExecution.textContent = fullPrompt;
     if (visiblePreview) visiblePreview.textContent = fullPrompt;
+
+    const liveRubric = promptRubric(a.prompt, { autoSources: block2SelectedDocIds().length > 0 });
+    liveRubric.forEach(item => {
+      const row = document.querySelector(`[data-b2-rubric="${item.id}"]`);
+      if (!row) return;
+      row.classList.toggle("pass", item.ok);
+      row.classList.toggle("fail", !item.ok);
+      const icon = row.querySelector(".result-icon");
+      if (icon) icon.textContent = item.ok ? "✓" : "✕";
+    });
   };
   b2PromptEditor?.addEventListener("input", syncBlock2ExecutionPrompt);
   b2PromptEditor?.addEventListener("change", () => { syncBlock2ExecutionPrompt(); saveState(); });
@@ -898,7 +931,7 @@ function renderBlock2() {
       return topic.validDocs.length ? topic.validDocs.includes(selected) : selected === "__none__";
     }).length;
     const auditScore = (auditCorrect / b.auditTopics.length) * 250;
-    const currentRubric = promptRubric(a.prompt);
+    const currentRubric = promptRubric(a.prompt, { autoSources: block2SelectedDocIds().length > 0 });
     const rubricScore = (currentRubric.filter(x => x.ok).length / currentRubric.length) * 135;
     const responseChecks = [
       baselineMetrics(a.answer).citations > 0,
@@ -963,7 +996,7 @@ ${formatDocs(b.requiredDocs)}
         ${answerBox("b4-hardened-answer", a.hardened, "Ejecuta de nuevo después de reforzar las instrucciones…", complete)}
       ` : ""}
 
-      ${complete ? `<div class="callout success"><strong>Diagnóstico cerrado</strong>${a.choice === b.correctChoice ? "Has identificado correctamente que la fuente intentaba modificar el comportamiento del modelo." : "La explicación correcta era que una fuente contenía una instrucción dirigida al asistente."}</div>` : (a.choice ? `<div class="btn-row"><button class="primary" id="finish-b4">Cerrar incidente</button></div>` : "")}
+      ${complete ? `<div class="callout success"><strong>Diagnóstico cerrado</strong>${a.choice === b.correctChoice ? "Has identificado correctamente que la fuente intentaba modificar el comportamiento del modelo." : "La explicación correcta era que una fuente contenía una instrucción dirigida al asistente."}</div>` : (a.choice ? `<div class="btn-row"><button class="primary" id="finish-b4">Cerrar incidente</button><button class="ghost" data-continue-anyway="4" type="button">Continuar igualmente →</button></div>` : `<div class="btn-row"><button class="ghost" data-continue-anyway="4" type="button">Continuar igualmente →</button></div>`)}
     </section>
     ${debriefPanel(4)}
   `;
@@ -1037,7 +1070,7 @@ ${docsById.get(b.sourceDoc).content}`;
         </div>
       ` : ""}
 
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="validate-b5">Enviar al sistema</button><span class="subtle">Intentos: ${a.attempts}</span></div>`}
+      ${complete ? "" : `<div class="btn-row"><button class="primary" id="validate-b5">Enviar al sistema</button><button class="ghost" data-continue-anyway="5" type="button">Continuar igualmente →</button><span class="subtle">Intentos: ${a.attempts}</span></div>`}
     </section>
     ${debriefPanel(5)}
   `;
@@ -1134,8 +1167,8 @@ function renderBlock6() {
             ${complete ? `<div class="explanation">${escapeHTML(q.explanation)}</div>` : ""}
           </article>`).join("")}
         </div>
-        ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b6">Entregar briefing definitivo</button></div>`}
-      ` : `<div class="callout warning"><strong>Primero actualiza tu modelo mental</strong>Completa las cuatro decisiones anteriores antes de volver a generar texto.</div>`}
+        ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b6">Entregar briefing definitivo</button><button class="ghost" data-continue-anyway="6" type="button">Finalizar igualmente →</button></div>`}
+      ` : `<div class="callout warning"><strong>Primero actualiza tu modelo mental</strong>Completa las cuatro decisiones anteriores antes de volver a generar texto.</div><div class="btn-row"><button class="ghost" data-continue-anyway="6" type="button">Finalizar igualmente →</button></div>`}
     </section>
     ${complete ? finalComparisonPanel() : ""}
     ${complete ? finalScorePanel() : ""}
@@ -1285,6 +1318,98 @@ function finalScorePanel() {
       </div>
       <div class="callout"><strong>Secuencia que debería quedarte</strong>Entender el encargo → formular criterios → seleccionar contexto → ejecutar → contrastar evidencias → validar → corregir → actualizar si cambia la información → entregar.</div>
     </section>`;
+}
+
+function partialScoreForBlock(n) {
+  if (n === 1) {
+    const a = state.answers.b1;
+    const checks = [
+      (a.prompt || "").trim().length >= 25,
+      (a.answer || "").trim().length >= 60,
+      Boolean(a.sendNow),
+      (a.reasons || "").trim().length >= 30
+    ];
+    return (checks.filter(Boolean).length / checks.length) * BLOCK_MAX[1];
+  }
+
+  if (n === 2) {
+    const b = course.blocks["2"];
+    const a = state.answers.b2;
+    const auditCorrect = b.auditTopics.filter(topic => {
+      const selected = a.audit?.[topic.id];
+      return topic.validDocs.length ? topic.validDocs.includes(selected) : selected === "__none__";
+    }).length;
+    const auditScore = (auditCorrect / b.auditTopics.length) * 250;
+    const rubric = promptRubric(a.prompt || "", { autoSources: block2SelectedDocIds().length > 0 });
+    const rubricScore = (rubric.filter(x => x.ok).length / rubric.length) * 135;
+    const responseChecks = [
+      baselineMetrics(a.answer || "").citations > 0,
+      criticalErrorCount(a.answer || "") === 0 && (a.answer || "").trim().length >= 20,
+      countWords(a.answer || "") > 0 && countWords(a.answer || "") <= 220
+    ];
+    const responseScore = (responseChecks.filter(Boolean).length / responseChecks.length) * 65;
+    return auditScore + rubricScore + responseScore;
+  }
+
+  if (n === 4) {
+    const a = state.answers.b4;
+    let score = 0;
+    if ((a.vulnerable || "").trim().length >= 20) score += 25;
+    if (a.choice) score += a.choice === course.blocks["4"].correctChoice ? 80 : 25;
+    if ((a.hardened || "").trim().length >= 20) score += 45;
+    return Math.min(BLOCK_MAX[4], score);
+  }
+
+  if (n === 5) {
+    const a = state.answers.b5;
+    if (a.lastValidation?.success) return Math.max(100, BLOCK_MAX[5] - Math.max(0, (a.attempts || 1) - 1) * 8);
+    if ((a.llm || "").trim()) return 40;
+    if ((a.prompt || "").trim()) return 20;
+    return 0;
+  }
+
+  if (n === 6) {
+    const b = course.blocks["6"];
+    const a = state.answers.b6;
+    const affectedCorrect = b.affectedChecks.filter(q => a.affected?.[q.id] === q.answer).length;
+    const affectedScore = (affectedCorrect / b.affectedChecks.length) * 65;
+
+    const neutral = new Set(b.neutralDocs || []);
+    const sourceItems = course.documents
+      .filter(d => !neutral.has(d.id))
+      .map(d => ({ id: d.id, relevant: b.recommendedDocs.includes(d.id) }));
+    const sc = scoreSelections(a.selectedDocs || [], sourceItems);
+    const f1 = sc.precision + sc.recall ? 2 * sc.precision * sc.recall / (sc.precision + sc.recall) : 0;
+    const sourceScore = f1 * 40;
+
+    const response = validateTextResponse(a.llm || "", { maxWords: b.maxWords, headings: b.requiredHeadings, citations: true, required: true });
+    const responseScore = ((a.llm || "").trim() ? (response.passed / response.total) * 55 : 0);
+
+    const criticalCorrect = b.criticalChecks.filter(q => a.critical?.[q.id] === q.answer).length;
+    const criticalScore = (criticalCorrect / b.criticalChecks.length) * 40;
+    return affectedScore + sourceScore + responseScore + criticalScore;
+  }
+
+  return 0;
+}
+
+function continueAnyway(n) {
+  const score = partialScoreForBlock(n);
+  state.scores[n] = clamp(Math.round(score), 0, BLOCK_MAX[n]);
+  if (!state.completed.includes(n)) state.completed.push(n);
+  state.completed.sort((a,b) => a-b);
+  saveState();
+
+  const idx = FLOW.indexOf(n);
+  if (idx >= 0 && idx < FLOW.length - 1) {
+    state.currentBlock = FLOW[idx + 1];
+    saveState();
+    render();
+    showToast(`Continuamos con el siguiente bloque · ${state.scores[n]}/${BLOCK_MAX[n]} puntos con lo realizado hasta ahora`);
+  } else {
+    render();
+    showToast(`Práctica cerrada · ${state.scores[n]}/${BLOCK_MAX[n]} puntos en este bloque`);
+  }
 }
 
 function completeBlock(n, score) {

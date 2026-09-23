@@ -11,7 +11,7 @@ La práctica sigue el principio **«primero el problema, después el concepto»*
 Los cinco momentos son:
 
 1. **El encargo cae sobre tu mesa** — primera respuesta libre y Versión 0.
-2. **¿Puedes defender lo que acaba de afirmar?** — auditoría de la propia respuesta, selección de fuentes y mejora del prompt. Las fuentes elegidas se adjuntan automáticamente al ejecutar o copiar la Versión 1.
+2. **¿Puedes defender lo que acaba de afirmar?** — auditoría de la propia respuesta, selección de fuentes y mejora del prompt. Las fuentes elegidas se adjuntan automáticamente al ejecutar o copiar la Versión 1. La rúbrica del apartado 2 se actualiza mientras se edita el prompt y reconoce ese contexto automático.
 3. **Ha llegado un documento nuevo** — una fuente contiene una instrucción dirigida al modelo y se compara un prompt deliberadamente vulnerable con otro reforzado.
 4. **El sistema no quiere literatura** — el resultado debe ser aceptado por un «sistema receptor» JSON.
 5. **Dirección cambia una condición** — llega evidencia más reciente, hay que actualizar el contexto y comparar la entrega final con la Versión 0.
@@ -65,3 +65,8 @@ Las pruebas comprueban la estructura de la misión v2.1, la auditoría de fuente
 ## Privacidad
 
 Todo el expediente es ficticio. No deben introducirse datos personales, sensibles o documentación real de una organización en herramientas no autorizadas.
+
+
+## Navegación flexible
+
+Cada bloque mantiene su validación y puntuación, pero también ofrece **Continuar igualmente**. Esto permite avanzar aunque una respuesta sea incompleta, el LLM falle o el alumno no consiga superar todos los criterios. En ese caso se conserva una puntuación parcial con lo realizado hasta ese momento.
