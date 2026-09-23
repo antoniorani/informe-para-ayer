@@ -666,10 +666,10 @@ function renderBlock2() {
           return `<article class="audit-card ${complete ? (correct ? "audit-ok" : "audit-bad") : ""}">
             <div class="doc-meta">${escapeHTML(topic.label)}</div>
             <p><strong>${escapeHTML(claim)}</strong></p>
-            <label class="field-label" for="audit-${topic.id}">¿Qué evidencia usarías para defenderla?</label>
+            <label class="field-label" for="audit-${topic.id}">¿Qué documento consultarías para verificarla?</label>
             <select id="audit-${topic.id}" class="audit-select" data-audit-topic="${topic.id}" ${complete ? "disabled" : ""}>
               <option value="">Selecciona…</option>
-              <option value="__none__" ${selected === "__none__" ? "selected" : ""}>No puedo respaldarla con el expediente</option>
+              <option value="__none__" ${selected === "__none__" ? "selected" : ""}>No encuentro evidencia suficiente en el expediente</option>
               ${docsForAudit.map(id => `<option value="${id}" ${selected === id ? "selected" : ""}>${id} · ${escapeHTML(docsById.get(id)?.title || id)}</option>`).join("")}
             </select>
             ${complete ? `<div class="explanation"><strong>${correct ? "Correcto" : "Revisa la trazabilidad"}.</strong> ${topic.validDocs.length ? `Evidencia preparada: ${topic.validDocs.join(" / ")}.` : "El expediente no contiene una evidencia suficiente para sostener esa afirmación como hecho."}</div>` : ""}
