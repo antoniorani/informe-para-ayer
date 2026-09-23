@@ -30,6 +30,16 @@ const textCheck = validateTextResponse('Resumen: correcto. Fuentes: [D1]', {
 });
 assert.ok(textCheck.results.every(item => item.ok));
 
+// La interfaz debe soportar respuestas con Markdown sin ejecutar HTML del modelo.
+const appSource = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+const stylesSource = fs.readFileSync(path.join(root, 'assets/styles.css'), 'utf8');
+assert.ok(appSource.includes('looksLikeMarkdown'), 'Falta la detección de Markdown en respuestas.');
+assert.ok(appSource.includes('marked@15.0.12'), 'Falta el renderizador Markdown.');
+assert.ok(appSource.includes('escapeHTML(text)'), 'El Markdown debe escapar HTML antes de renderizarse.');
+assert.ok(appSource.includes('hardenMarkdownLinks'), 'Los enlaces Markdown deben endurecerse.');
+assert.ok(stylesSource.includes('.markdown-body'), 'Faltan estilos para el Markdown renderizado.');
+assert.ok(stylesSource.includes('.markdown-preview'), 'Falta la vista formateada de respuestas.');
+
 // Bloque 1: línea base libre.
 const b1 = course.blocks['1'];
 assert.ok(b1.task && (b1.requiredDocs || []).length >= 5, 'Bloque 1: falta un encargo real y su expediente.');
