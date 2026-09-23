@@ -51,6 +51,16 @@ assert.ok(appSourceForSources.includes('<FUENTES_SELECCIONADAS>'), 'El prompt de
 assert.ok(appSourceForSources.includes('executionContent: executionPrompt'), 'El bloque 2 debe ejecutar/copiar el prompt enriquecido, no solo el texto del editor.');
 assert.ok(appSourceForSources.includes('No tienes que copiar ni pegar ninguna fuente'), 'La interfaz debe explicar que las fuentes se adjuntan automáticamente.');
 
+// Flujo flexible y validación viva del bloque 2.
+const appSourceFlexible = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+assert.ok(appSourceFlexible.includes('data-b2-rubric'), 'La rúbrica del bloque 2 debe poder actualizarse en vivo.');
+assert.ok(appSourceFlexible.includes('liveRubric'), 'Falta la actualización en tiempo real de la rúbrica del bloque 2.');
+assert.ok(appSourceFlexible.includes('autoSources: block2SelectedDocIds().length > 0'), 'La rúbrica debe reconocer las fuentes adjuntadas automáticamente.');
+assert.ok(appSourceFlexible.includes('function continueAnyway'), 'Debe existir una vía para continuar aunque un bloque no esté completo.');
+for (const blockId of ['1', '2', '4', '5', '6']) {
+  assert.ok(appSourceFlexible.includes(`data-continue-anyway="${blockId}"`), `Falta la salida flexible del bloque ${blockId}.`);
+}
+
 // Bloque 2: auditoría trazable y al menos una afirmación sin evidencia.
 const b2 = course.blocks['2'];
 assert.ok((b2.auditTopics || []).length >= 5, 'Bloque 2: faltan temas de auditoría.');
