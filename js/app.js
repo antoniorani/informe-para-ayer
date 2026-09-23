@@ -398,6 +398,13 @@ function wireGeminiButtons(scope = document) {
         answer.value = response;
         answer.dispatchEvent(new Event("input", { bubbles: true }));
         answer.dispatchEvent(new Event("change", { bubbles: true }));
+
+        // La respuesta ya está persistida por el evento change. Volvemos a pintar
+        // el bloque para que aparezcan inmediatamente las interacciones que dependen
+        // del contenido generado: radiografías, diagnósticos, comparaciones y checks.
+        if (state.currentBlock >= 1 && state.currentBlock <= 6) {
+          renderBlock(state.currentBlock);
+        }
         showToast("Respuesta recibida de Gemini.");
       } catch (error) {
         console.error("Gemini API", error);
