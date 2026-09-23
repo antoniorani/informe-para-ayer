@@ -44,6 +44,13 @@ assert.ok(stylesSource.includes('.markdown-preview'), 'Falta la vista formateada
 const b1 = course.blocks['1'];
 assert.ok(b1.task && (b1.requiredDocs || []).length >= 5, 'Bloque 1: falta un encargo real y su expediente.');
 
+// Bloque 2: las fuentes seleccionadas deben adjuntarse automáticamente al prompt ejecutado/copied.
+const appSourceForSources = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+assert.ok(appSourceForSources.includes('block2SelectedDocIds'), 'Falta la recopilación automática de fuentes seleccionadas.');
+assert.ok(appSourceForSources.includes('<FUENTES_SELECCIONADAS>'), 'El prompt del bloque 2 debe incluir las fuentes seleccionadas.');
+assert.ok(appSourceForSources.includes('executionContent: executionPrompt'), 'El bloque 2 debe ejecutar/copiar el prompt enriquecido, no solo el texto del editor.');
+assert.ok(appSourceForSources.includes('No tienes que copiar ni pegar ninguna fuente'), 'La interfaz debe explicar que las fuentes se adjuntan automáticamente.');
+
 // Bloque 2: auditoría trazable y al menos una afirmación sin evidencia.
 const b2 = course.blocks['2'];
 assert.ok((b2.auditTopics || []).length >= 5, 'Bloque 2: faltan temas de auditoría.');
