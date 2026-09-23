@@ -824,7 +824,7 @@ function renderBlock2() {
       })}
       <details class="execution-preview">
         <summary>Ver el prompt completo que recibirá el LLM</summary>
-        <pre>${escapeHTML(executionPrompt)}</pre>
+        <pre id="b2-execution-preview">${escapeHTML(executionPrompt)}</pre>
       </details>
       ${answerBox("b2-answer", a.answer, "Ejecuta el prompt revisado. Las fuentes seleccionadas se enviarán automáticamente junto con él.", complete)}
 
@@ -870,7 +870,18 @@ function renderBlock2() {
     saveState();
     renderBlock2();
   }));
-  document.querySelector("#b2-prompt")?.addEventListener("change", e => { a.prompt = e.target.value; saveState(); });
+  const b2PromptEditor = document.querySelector("#b2-prompt");
+  const syncBlock2ExecutionPrompt = () => {
+    if (!b2PromptEditor) return;
+    a.prompt = b2PromptEditor.value;
+    const fullPrompt = buildBlock2Prompt();
+    const hiddenExecution = document.querySelector("#b2-prompt-execution");
+    const visiblePreview = document.querySelector("#b2-execution-preview");
+    if (hiddenExecution) hiddenExecution.textContent = fullPrompt;
+    if (visiblePreview) visiblePreview.textContent = fullPrompt;
+  };
+  b2PromptEditor?.addEventListener("input", syncBlock2ExecutionPrompt);
+  b2PromptEditor?.addEventListener("change", () => { syncBlock2ExecutionPrompt(); saveState(); });
   document.querySelector("#b2-answer")?.addEventListener("change", e => { a.answer = e.target.value; saveState(); });
 
   document.querySelector("#finish-b2")?.addEventListener("click", () => {
