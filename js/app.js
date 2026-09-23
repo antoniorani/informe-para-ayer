@@ -335,8 +335,75 @@ function promptBox(id, content, { editable = false, label = "Prompt para tu LLM"
     </div>`;
 }
 
+let markdownModulePromise = null;
+
+function looksLikeMarkdown(value = '') {
+  const text = String(value || '');
+  return /(^|\n)\s{0,3}#{1,6}\s+\S/.test(text)
+    || /(^|\n)\s*(?:[-*+]\s+|\d+\.\s+)/.test(text)
+    || /(^|\n)\s*>\s+\S/.test(text)
+    || /(^|\n)\s*\x60\x60\x60/.test(text)
+    || /(^|\n)\s*\|.+\|\s*(?:\n|$)/.test(text)
+    || /\*\*[^*\n]+\*\*|__[^_\n]+__|\x60[^\x60\n]+\x60/.test(text);
+}
+
+async function getMarkdownModule() {
+  if (!markdownModulePromise) markdownModulePromise = import('https://esm.sh/marked@15.0.12');
+  return markdownModulePromise;
+}
+
+function hardenMarkdownLinks(root) {
+  root.querySelectorAll('a').forEach(link => {
+    const href = link.getAttribute('href') || '';
+    let safe = href.startsWith('#');
+    try {
+      const url = new URL(href, location.href);
+      safe = safe || ['http:', 'https:', 'mailto:'].includes(url.protocol);
+    } catch {
+      safe = false;
+    }
+    if (!safe) {
+      link.removeAttribute('href');
+      link.removeAttribute('target');
+      link.removeAttribute('rel');
+    } else if (!href.startsWith('#')) {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+}
+
+async function renderMarkdownElement(element, markdown) {
+  if (!element) return;
+  const text = String(markdown || '');
+  element.textContent = text;
+  if (!text.trim()) return;
+  const expected = text;
+  try {
+    const { marked } = await getMarkdownModule();
+    if (element.textContent !== expected) return;
+    element.innerHTML = marked.parse(escapeHTML(text), { gfm: true, breaks: true });
+    hardenMarkdownLinks(element);
+  } catch (error) {
+    console.warn('No se pudo renderizar Markdown; se mantiene el texto plano.', error);
+    element.textContent = text;
+  }
+}
+
+function hydrateMarkdownViews(scope = document) {
+  scope.querySelectorAll('.markdown-auto').forEach(element => {
+    renderMarkdownElement(element, element.textContent || '');
+  });
+}
+
 function answerBox(id, value, placeholder = "Pega aquí la respuesta obtenida en tu LLM…", readOnly = false) {
-  return `<textarea id="${id}" class="answer-area" placeholder="${escapeHTML(placeholder)}" ${readOnly ? "readonly" : ""}>${escapeHTML(value || "")}</textarea><div class="counter" id="${id}-counter">${countWords(value || "")} palabras</div>`;
+  const text = value || '';
+  const markdownVisible = looksLikeMarkdown(text);
+  return '<textarea id="' + id + '" class="answer-area" placeholder="' + escapeHTML(placeholder) + '" ' + (readOnly ? 'readonly' : '') + '>' + escapeHTML(text) + '</textarea>'
+    + '<div class="counter" id="' + id + '-counter">' + countWords(text) + ' palabras</div>'
+    + '<div class="markdown-preview ' + (markdownVisible ? '' : 'hidden') + '" id="' + id + '-preview">'
+    + '<div class="markdown-preview-label">Vista formateada</div>'
+    + '<div class="markdown-body" id="' + id + '-preview-body">' + escapeHTML(text) + '</div></div>';
 }
 
 async function copyText(text) {
@@ -371,6 +438,7 @@ function wireCopyButtons(scope = document) {
     showToast(ok ? "Prompt copiado. Puedes probarlo también en otro modelo." : "No se pudo copiar automáticamente. Selecciona el prompt y cópialo manualmente.");
   }));
   wireGeminiButtons(scope);
+  hydrateMarkdownViews(scope);
 }
 
 function wireGeminiButtons(scope = document) {
@@ -483,10 +551,23 @@ async function askGemini(prompt) {
 }
 
 function wireWordCounter(textareaId) {
-  const area = document.querySelector(`#${textareaId}`);
-  const counter = document.querySelector(`#${textareaId}-counter`);
+  const area = document.querySelector('#' + textareaId);
+  const counter = document.querySelector('#' + textareaId + '-counter');
+  const preview = document.querySelector('#' + textareaId + '-preview');
+  const previewBody = document.querySelector('#' + textareaId + '-preview-body');
   if (!area || !counter) return;
-  area.addEventListener("input", () => { counter.textContent = `${countWords(area.value)} palabras`; });
+
+  const update = () => {
+    counter.textContent = countWords(area.value) + ' palabras';
+    if (!preview || !previewBody) return;
+    const show = looksLikeMarkdown(area.value);
+    preview.classList.toggle('hidden', !show);
+    if (show) renderMarkdownElement(previewBody, area.value);
+    else previewBody.textContent = '';
+  };
+
+  area.addEventListener('input', update);
+  update();
 }
 
 function debriefPanel(n) {
@@ -671,7 +752,7 @@ function renderBlock2() {
       <div class="callout"><strong>No tienes que copiar ninguna fuente</strong>Para cada afirmación, selecciona un documento en el desplegable. La web te mostrará su texto debajo para que puedas comprobar si realmente sirve. <div class="btn-row"><button class="secondary" id="b2-open-docs" type="button">Abrir expediente completo</button></div></div>
       <div class="version-card">
         <div class="version-head"><strong>Versión 0</strong><span>${countWords(baseline)} palabras</span></div>
-        <div class="version-text">${escapeHTML(baseline)}</div>
+        <div class="version-text markdown-auto">${escapeHTML(baseline)}</div>
       </div>
 
       <div class="audit-grid">
@@ -804,7 +885,7 @@ ${formatDocs(b.requiredDocs)}
     <section class="panel">
       <div class="step-row"><span class="step-badge">1</span><div><h3>Ha llegado una nota técnica nueva</h3><p>Incorpórala al contexto como harías con cualquier otra fuente y observa si la respuesta cambia.</p></div></div>
       ${docsCards(["D9"], true)}
-      ${previous ? `<div class="version-card compact-version"><div class="version-head"><strong>Respuesta anterior</strong><span>antes de D9</span></div><div class="version-text">${escapeHTML(previous)}</div></div>` : ""}
+      ${previous ? `<div class="version-card compact-version"><div class="version-head"><strong>Respuesta anterior</strong><span>antes de D9</span></div><div class="version-text markdown-auto">${escapeHTML(previous)}</div></div>` : ""}
       ${promptBox("b4-vulnerable-prompt", vulnerablePrompt, { label: "Consulta vulnerable con el documento nuevo" })}
       ${answerBox("b4-vulnerable-answer", a.vulnerable, "Ejecuta la consulta con D9 añadido al contexto…", complete)}
 
