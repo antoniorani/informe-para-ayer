@@ -29,7 +29,7 @@ No enseñes una plantilla de prompt todavía.
 
 El alumno ve frases de su Versión 0 asociadas a seis temas críticos. Para cada una, **no tiene que copiar ninguna fuente**: selecciona un documento en el desplegable y la web muestra inmediatamente el texto del documento debajo para poder comprobarlo. También puede abrir el expediente completo desde el propio bloque.
 
-Después mejora su prompt y genera una Versión 1.
+Después mejora su prompt y genera una Versión 1. **Las fuentes seleccionadas arriba se adjuntan automáticamente** al pulsar «Ejecutar con Gemini» o «Copiar», de modo que el alumno no tiene que pegar el contenido de los documentos en el prompt. Puede desplegar «Ver el prompt completo que recibirá el LLM» para comprobar exactamente qué contexto se enviará.
 
 Claves de corrección:
 
