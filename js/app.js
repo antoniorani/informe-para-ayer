@@ -575,14 +575,64 @@ function renderBlock1() {
   wireDebrief(1);
 }
 
-function buildBlock1Prompt() {
-  const b = course.blocks["1"];
-  const a = state.answers.b1;
-  const selected = b.promptComponents.filter(c => a.components.includes(c.id));
-  const instructions = selected.length
-    ? selected.map(c => `- ${c.text}`).join("\n")
-    : "- Analiza la documentación de forma útil para la tarea.";
-  return `TAREA\n${instructions}\n\n<FUENTES>\n${formatDocs(b.requiredDocs)}\n</FUENTES>`;
+function baselineMetrics(text = "") {
+  const normalized = normalize(text);
+  const citations = new Set((text.match(/\bD(?:1[01]|[1-9])\b/gi) || []).map(x => x.toUpperCase())).size;
+  return {
+    words: countWords(text),
+    citations,
+    start: /1 de octubre|01\/10|inici|comenz|arranc/.test(normalized),
+    budget: /185|presupuesto|euros/.test(normalized),
+    risk: /riesg|seguridad|proteccion de datos/.test(normalized),
+    recommendation: /recomend|conviene|deberia|propon/.test(normalized)
+  };
+}
+
+function criticalErrorCount(text = "") {
+  const n = normalize(text);
+  const checks = [
+    /37\s*%/.test(n),
+    /(despliegue general|expansion).{0,45}(aprob|autoriz)/.test(n),
+    /95[.\s]?000.{0,45}(aprob|autoriz)/.test(n),
+    /4[,.]2.{0,45}(usuarios reales|satisfaccion esperada)/.test(n)
+  ];
+  return checks.filter(Boolean).length;
+}
+
+function promptRubric(prompt = "") {
+  const n = normalize(prompt);
+  const checks = [
+    { id: "sources", label: "Limita la respuesta a las fuentes proporcionadas", ok: /fuente|documento|expediente/.test(n) && /exclusiv|solo|unicamente/.test(n) },
+    { id: "citations", label: "Exige citar la fuente de cada dato relevante", ok: /cit|referenc|identificador/.test(n) },
+    { id: "uncertainty", label: "Permite declarar información ausente o no aprobada", ok: /no disponible|no consta|no aprobad|informacion ausente|si .*no .*aparece/.test(n) },
+    { id: "factInference", label: "Distingue hechos, inferencias y recomendaciones", ok: /hecho/.test(n) && /inferenc|recomend/.test(n) },
+    { id: "limits", label: "Evita convertir propuestas o pruebas en hechos futuros", ok: /propuesta|prueba interna|usuarios reales|no invent|no extrapol/.test(n) }
+  ];
+  return checks;
+}
+
+function metricCard(label, value, ok = null) {
+  const cls = ok === null ? "" : ok ? "good" : "warn";
+  return \`<div class="metric-card \${cls}"><span>\${escapeHTML(label)}</span><strong>\${escapeHTML(value)}</strong></div>\`;
+}
+
+function extractAuditSentence(text, topic) {
+  const sentences = String(text || "")
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  const normalizedKeywords = (topic.keywords || []).map(normalize);
+  const hit = sentences.find(sentence => {
+    const n = normalize(sentence);
+    return normalizedKeywords.some(k => k && n.includes(k));
+  });
+  return hit || topic.fallback;
+}
+
+function buildBlock2Prompt() {
+  const a = state.answers.b2;
+  const base = a.prompt || state.answers.b1.prompt || "";
+  return base;
 }
 
 function renderBlock2() {
