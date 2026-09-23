@@ -382,3 +382,24 @@ textarea[readonly]:focus { box-shadow: none; border-color: #bdc8d3; }
   .attempt-row { grid-template-columns: 1fr; gap: 3px; }
   .context-counter { position: static; margin-left: 0; }
 }
+
+
+/* v2.1 · selección de fuentes más clara */
+.source-preview {
+  margin-top: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f7f9fb;
+}
+.source-preview p {
+  min-height: 0;
+  margin: 5px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #4a5665;
+}
+.source-preview.empty-source {
+  background: var(--amber-soft);
+  border-color: #ead59c;
+}
