@@ -748,80 +748,135 @@ function renderBlock2() {
   wireDebrief(2);
 }
 
+function buildRagPrompt(question, selectedIds) {
+  const b = course.blocks["3"];
+  const selected = b.fragments.filter(f => selectedIds.includes(f.id));
+  const context = selected.map(f => \`[\${f.doc} · \${f.id}] \${f.text}\`).join("\n\n");
+  return \`Responde utilizando exclusivamente el contexto entre <CONTEXTO> y </CONTEXTO>. Cita los identificadores de los fragmentos utilizados. Si el contexto no permite responder, indícalo expresamente.
+
+PREGUNTA: \${question}
+
+<CONTEXTO>
+\${context || "[Selecciona uno o más fragmentos]"}
+</CONTEXTO>\`;
+}
+
 function renderBlock3() {
   const b = course.blocks["3"];
   const a = state.answers.b3;
   const complete = state.completed.includes(3);
-  const selectedFragments = b.fragments.filter(f => a.selected.includes(f.id));
-  const context = selectedFragments.map(f => `[${f.doc} · ${f.id}] ${f.text}`).join("\n\n");
-  const ragPrompt = `Responde a la pregunta utilizando exclusivamente el contexto entre <CONTEXTO> y </CONTEXTO>. Cita los identificadores de los fragmentos utilizados. Si el contexto no permite responder, indícalo expresamente.\n\nPREGUNTA: ${b.question}\n\n<CONTEXTO>\n${context || "[Selecciona primero uno o más fragmentos]"}\n</CONTEXTO>`;
-  const selectionScore = scoreSelections(a.selected, b.fragments);
   const rankingMap = new Map((runtime.semanticRanking || []).map((item, i) => [item.id, { rank: i + 1, score: item.score, method: item.method }]));
   const fragmentsForDisplay = runtime.semanticRanking?.length
     ? runtime.semanticRanking.map(item => b.fragments.find(f => f.id === item.id)).filter(Boolean)
     : b.fragments;
+  const selectionScore = scoreSelections(a.selected, b.fragments);
+  const firstPrompt = buildRagPrompt(b.question, a.selected);
+  const secondPrompt = buildRagPrompt(b.question, a.selected);
 
-  document.querySelector("#main").innerHTML = `
-    ${blockHero(3)}
+  document.querySelector("#main").innerHTML = \`
+    \${blockHero(3)}
     <section class="panel">
-      <div class="callout"><strong>Pregunta a resolver</strong>${escapeHTML(b.question)}</div>
-      <div class="step-row"><span class="step-badge">1</span><div><h3>Selecciona el contexto</h3><p>Imagina que estos son los fragmentos recuperables de 47 PDFs. ¿Cuáles mandarías al LLM?</p></div></div>
+      <div class="callout mission-brief"><strong>Pregunta a resolver</strong>\${escapeHTML(b.question)}</div>
+      <div class="step-row"><span class="step-badge">1</span><div><h3>Solo puedes enviar \${b.maxFragments} fragmentos</h3><p>El expediente ha crecido. Selecciona el contexto mínimo que creas suficiente para responder bien.</p></div></div>
+      <div class="context-counter \${a.selected.length === b.maxFragments ? "full" : ""}"><strong>\${a.selected.length}/\${b.maxFragments}</strong> fragmentos seleccionados</div>
       <div class="fragment-grid">
-        ${fragmentsForDisplay.map(f => {
+        \${fragmentsForDisplay.map(f => {
           const rank = rankingMap.get(f.id);
-          const reveal = complete ? (f.relevant ? " · relevante" : " · distractor") : "";
-          return `<label class="fragment-card ${a.selected.includes(f.id) ? "selected" : ""}">
-            <div class="fragment-head"><span>${escapeHTML(f.doc)} · ${escapeHTML(f.id)}${reveal}</span>${rank ? `<span class="rank-chip">#${rank.rank} · ${rank.score.toFixed(2)}</span>` : ""}</div>
-            <p>${escapeHTML(f.text)}</p>
-            <input type="checkbox" data-fragment="${f.id}" ${a.selected.includes(f.id) ? "checked" : ""} ${complete ? "disabled" : ""}>
-          </label>`;
+          const firstPick = a.firstSelected.includes(f.id);
+          const reveal = complete ? (f.relevant ? " · evidencia necesaria" : " · distractor/secundario") : "";
+          return \`<label class="fragment-card \${a.selected.includes(f.id) ? "selected" : ""} \${a.firstLocked && firstPick ? "first-pick" : ""}">
+            <div class="fragment-head">
+              <span>\${escapeHTML(f.doc)} · \${escapeHTML(f.id)}\${reveal}</span>
+              \${rank ? \`<span class="rank-chip">#\${rank.rank} · \${rank.score.toFixed(2)}</span>\` : ""}
+            </div>
+            <p>\${escapeHTML(f.text)}</p>
+            <input type="checkbox" data-fragment="\${f.id}" \${a.selected.includes(f.id) ? "checked" : ""} \${complete ? "disabled" : ""}>
+          </label>\`;
         }).join("")}
       </div>
-      <div class="btn-row">
-        <button class="secondary" id="semantic-rank" type="button">🧠 Demo de similitud semántica</button>
-        <span class="subtle" id="semantic-status">${escapeHTML(runtime.semanticStatus || "Opcional · puede descargar decenas de MB la primera vez. Úsalo si lo indica el docente; si falla, se aplica un ranking léxico de respaldo.")}</span>
-      </div>
-      ${runtime.semanticRanking?.length ? `<div class="callout warning"><strong>Importante</strong>La lista se ha reordenado por similitud. Estar arriba no significa ser jurídicamente o contextualmente relevante: esa es precisamente la parte que debes juzgar.</div>` : ""}
 
-      <div class="step-row"><span class="step-badge">2</span><div><h3>Construye el mini-RAG manual</h3><p>La web empaqueta tu selección como contexto. El LLM sigue siendo externo.</p></div></div>
-      ${promptBox("b3-prompt", ragPrompt)}
-      ${answerBox("b3-answer", a.llm, "Pega aquí la respuesta obtenida con tu contexto…", complete)}
-      ${complete ? `<div class="callout ${selectionScore.precision >= .7 && selectionScore.recall >= .7 ? "success" : "warning"}"><strong>Tu recuperación</strong>Precisión ${(selectionScore.precision*100).toFixed(0)} % · Cobertura ${(selectionScore.recall*100).toFixed(0)} %. Has seleccionado ${selectionScore.tp} fragmentos relevantes y ${selectionScore.fp} distractores.</div>` : ""}
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b3">Evaluar recuperación y cerrar bloque</button></div>`}
+      \${!a.firstLocked ? \`
+        <div class="step-row"><span class="step-badge">2</span><div><h3>Primer intento: tu recuperación manual</h3><p>Ejecuta la pregunta solo con los fragmentos que has elegido. La recuperación automática todavía está bloqueada.</p></div></div>
+        \${promptBox("b3-first-prompt", firstPrompt, { label: "Contexto elegido por ti" })}
+        \${answerBox("b3-first-answer", a.firstAnswer, "Respuesta con tu primera selección de contexto…", false)}
+        <div class="btn-row"><button class="primary" id="lock-b3-first">Fijar primer intento y comparar</button></div>
+      \` : \`
+        <div class="callout success"><strong>Primer intento guardado</strong>Tu selección inicial fue: \${escapeHTML(a.firstSelected.join(", "))}. Ahora puedes comparar con la recuperación automática y cambiar solo el contexto.</div>
+        <div class="version-card compact-version">
+          <div class="version-head"><strong>Respuesta con selección humana</strong><span>\${countWords(a.firstAnswer)} palabras</span></div>
+          <div class="version-text">\${escapeHTML(a.firstAnswer)}</div>
+        </div>
+
+        <div class="step-row"><span class="step-badge">3</span><div><h3>Compara con recuperación automática</h3><p>El ranking mide similitud, no relevancia administrativa. Úsalo como ayuda, no como solución.</p></div></div>
+        <div class="btn-row">
+          <button class="secondary" id="semantic-rank" type="button">🧠 Calcular ranking por similitud</button>
+          <span class="subtle" id="semantic-status">\${escapeHTML(runtime.semanticStatus || "Opcional: primero observa tu selección; después compara con el ranking automático.")}</span>
+        </div>
+        \${runtime.semanticRanking?.length ? \`<div class="callout warning"><strong>No confundas ranking con verdad</strong>Estar arriba significa parecerse a la pregunta. Tú decides si el fragmento aporta la evidencia necesaria.</div>\` : ""}
+
+        <div class="step-row"><span class="step-badge">4</span><div><h3>Segundo intento: cambia el contexto</h3><p>Puedes conservar o sustituir fragmentos. Intenta mejorar la cobertura sin enviar más de \${b.maxFragments}.</p></div></div>
+        \${promptBox("b3-second-prompt", secondPrompt, { label: "Segundo contexto" })}
+        \${answerBox("b3-second-answer", a.secondAnswer, "Respuesta después de revisar el contexto…", complete)}
+        \${complete ? \`<div class="callout \${selectionScore.recall >= .8 ? "success" : "warning"}"><strong>Resultado de contexto</strong>Precisión \${(selectionScore.precision*100).toFixed(0)} % · Cobertura \${(selectionScore.recall*100).toFixed(0)} %. La métrica es orientativa: lo importante es que la evidencia necesaria esté dentro.</div>\` : \`<div class="btn-row"><button class="primary" id="finish-b3">Cerrar selección de contexto</button></div>\`}
+      \`}
     </section>
-    ${debriefPanel(3)}
-  `;
+    \${debriefPanel(3)}
+  \`;
 
   wireCopyButtons();
-  wireWordCounter("b3-answer");
+  wireWordCounter("b3-first-answer");
+  wireWordCounter("b3-second-answer");
+
   document.querySelectorAll("[data-fragment]").forEach(box => box.addEventListener("change", () => {
-    a.selected = toggleArray(a.selected, box.dataset.fragment, box.checked);
+    if (complete) return;
+    const id = box.dataset.fragment;
+    if (box.checked && !a.selected.includes(id) && a.selected.length >= b.maxFragments) {
+      box.checked = false;
+      return showToast(\`Solo puedes enviar \${b.maxFragments} fragmentos. Quita uno antes de añadir otro.\`);
+    }
+    a.selected = toggleArray(a.selected, id, box.checked);
     saveState();
     renderBlock3();
   }));
-  document.querySelector("#b3-answer").addEventListener("change", e => { a.llm = e.target.value; saveState(); });
+
+  document.querySelector("#b3-first-answer")?.addEventListener("change", e => { a.firstAnswer = e.target.value; saveState(); });
+  document.querySelector("#b3-second-answer")?.addEventListener("change", e => { a.secondAnswer = e.target.value; saveState(); });
+
+  document.querySelector("#lock-b3-first")?.addEventListener("click", () => {
+    a.firstAnswer = document.querySelector("#b3-first-answer").value.trim();
+    if (!a.selected.length) return showToast("Selecciona algún fragmento antes de ejecutar el primer intento.");
+    if (a.selected.length > b.maxFragments) return showToast(\`El límite es de \${b.maxFragments} fragmentos.\`);
+    if (a.firstAnswer.length < 40) return showToast("Ejecuta primero la consulta con tu selección manual.");
+    a.firstSelected = [...a.selected];
+    a.firstLocked = true;
+    saveState();
+    renderBlock3();
+  });
+
   document.querySelector("#semantic-rank")?.addEventListener("click", async () => {
     const statusEl = document.querySelector("#semantic-status");
     const btn = document.querySelector("#semantic-rank");
     btn.disabled = true;
     runtime.semanticStatus = "Preparando recuperación local…";
-    statusEl.textContent = runtime.semanticStatus;
+    if (statusEl) statusEl.textContent = runtime.semanticStatus;
     const ranked = await rankFragments(b.question, b.fragments, msg => {
       runtime.semanticStatus = msg;
       if (document.querySelector("#semantic-status")) document.querySelector("#semantic-status").textContent = msg;
     });
     runtime.semanticRanking = ranked;
-    runtime.semanticStatus = `Ranking calculado con ${ranked[0]?.method === "embeddings" ? "embeddings locales" : "respaldo léxico"}.`;
+    runtime.semanticStatus = \`Ranking calculado con \${ranked[0]?.method === "embeddings" ? "embeddings locales" : "respaldo léxico"}.\`;
     renderBlock3();
   });
+
   document.querySelector("#finish-b3")?.addEventListener("click", () => {
-    a.llm = document.querySelector("#b3-answer").value.trim();
-    if (!a.selected.length) return showToast("Selecciona al menos un fragmento para construir el contexto.");
-    if (a.llm.length < 30) return showToast("Prueba el contexto en tu LLM y pega aquí la respuesta.");
-    const s = scoreSelections(a.selected, b.fragments);
-    const f1 = s.precision + s.recall ? 2 * s.precision * s.recall / (s.precision + s.recall) : 0;
-    const responseChecks = validateTextResponse(a.llm, { citations: true, required: true });
-    const score = Math.round((f1 * 160) + ((responseChecks.passed / responseChecks.total) * 20));
+    a.secondAnswer = document.querySelector("#b3-second-answer").value.trim();
+    if (!a.firstLocked) return showToast("Guarda primero el intento con tu selección manual.");
+    if (!a.selected.length || a.selected.length > b.maxFragments) return showToast(\`Selecciona entre 1 y \${b.maxFragments} fragmentos.\`);
+    if (a.secondAnswer.length < 40) return showToast("Ejecuta una segunda respuesta después de revisar el contexto.");
+    const sc = scoreSelections(a.selected, b.fragments);
+    const f1 = sc.precision + sc.recall ? 2 * sc.precision * sc.recall / (sc.precision + sc.recall) : 0;
+    const responseChecks = validateTextResponse(a.secondAnswer, { citations: true, required: true });
+    const score = (f1 * 170) + ((responseChecks.passed / responseChecks.total) * 30);
     completeBlock(3, score);
   });
   wireDebrief(3);
