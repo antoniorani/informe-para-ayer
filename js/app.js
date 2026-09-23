@@ -505,77 +505,72 @@ function wireDebrief(n) {
 function renderBlock1() {
   const b = course.blocks["1"];
   const a = state.answers.b1;
-  const initialFullPrompt = `${b.initialPrompt}\n\nDOCUMENTOS:\n${formatDocs(b.requiredDocs)}`;
-  const improved = buildBlock1Prompt();
   const complete = state.completed.includes(1);
-  const validation = validateTextResponse(a.improved, {
-    required: true,
-    maxWords: 220,
-    headings: ["Resumen", "Hechos confirmados", "Riesgos", "Cuestiones pendientes", "Fuentes"],
-    citations: true
-  });
+  const metrics = baselineMetrics(a.answer);
 
-  document.querySelector("#main").innerHTML = `
-    ${blockHero(1)}
+  document.querySelector("#main").innerHTML = \`
+    \${blockHero(1)}
     <section class="panel">
-      <div class="step-row"><span class="step-badge">1</span><div><h3>Prueba una petición deliberadamente mala</h3><p>Usa exactamente este prompt en tu LLM. Queremos una línea base imperfecta.</p></div></div>
-      <div class="callout"><strong>Para que la comparación sea limpia</strong>Usa el mismo LLM en el primer y el segundo intento. Si cambias de modelo, ya no sabremos si mejoró el prompt o cambió el cocinero.</div>
-      ${docsCards(b.requiredDocs, true)}
-      ${promptBox("b1-initial-prompt", initialFullPrompt)}
-      ${answerBox("b1-initial-answer", a.initial, "Pega aquí la primera respuesta de tu LLM…", complete)}
-      <p class="mini-title section-kicker">Autoevaluación de la primera respuesta · no puntúa</p>
-      <div class="check-grid">
-        ${b.checklist.map((item, i) => `<label class="check-card"><input type="checkbox" data-b1-check="${i}" ${a.checklist.includes(i) ? "checked" : ""} ${complete ? "disabled" : ""}><span>${escapeHTML(item)}</span></label>`).join("")}
-      </div>
+      <div class="callout mission-brief"><strong>El encargo</strong>\${escapeHTML(b.task)}</div>
+      <div class="step-row"><span class="step-badge">1</span><div><h3>Resuélvelo como lo harías normalmente</h3><p>No hay piezas de prompt para activar ni una plantilla oculta. Escribe el prompt que tú usarías y ejecútalo.</p></div></div>
+      \${docsCards(b.requiredDocs, true)}
+      \${promptBox("b1-prompt", a.prompt, { editable: true, label: "Tu primer prompt · Versión 0", readOnly: complete })}
+      \${answerBox("b1-answer", a.answer, "Aquí quedará tu primera respuesta. Esta será la Versión 0 con la que compararemos el final.", complete)}
 
-      <div class="step-row"><span class="step-badge">2</span><div><h3>Convierte la petición en una especificación</h3><p>Selecciona qué elementos añadirías. La web construirá el prompt; tú comprobarás el efecto en el LLM.</p></div></div>
-      <div class="check-grid">
-        ${b.promptComponents.map(c => `<label class="check-card component-card"><input type="checkbox" data-b1-component="${c.id}" ${a.components.includes(c.id) ? "checked" : ""} ${complete ? "disabled" : ""}><span><strong>${escapeHTML(c.label)}</strong><br>${escapeHTML(c.text)}</span></label>`).join("")}
-      </div>
-      ${promptBox("b1-improved-prompt", improved)}
-      ${answerBox("b1-improved-answer", a.improved, "Pega aquí la segunda respuesta de tu LLM…", complete)}
+      \${a.answer ? \`
+        <div class="step-row"><span class="step-badge">2</span><div><h3>Radiografía de la Versión 0</h3><p>No te decimos todavía si los hechos son correctos. Solo miramos síntomas observables.</p></div></div>
+        <div class="metric-grid">
+          \${metricCard("Extensión", \`\${metrics.words} palabras\`, metrics.words <= 220 && metrics.words >= 60)}
+          \${metricCard("Fuentes explícitas", String(metrics.citations), metrics.citations > 0)}
+          \${metricCard("Cubre inicio", metrics.start ? "Sí" : "No", metrics.start)}
+          \${metricCard("Cubre presupuesto", metrics.budget ? "Sí" : "No", metrics.budget)}
+          \${metricCard("Cubre riesgos", metrics.risk ? "Sí" : "No", metrics.risk)}
+          \${metricCard("Incluye recomendación", metrics.recommendation ? "Sí" : "No", metrics.recommendation)}
+        </div>
+      \` : ""}
 
-      <div class="callout ${validation.passed === validation.total && a.improved ? "success" : ""}">
-        <strong>Comprobación mecánica de la segunda respuesta</strong>
-        <div class="result-list">${validation.results.map(r => resultItem(r.ok, r.label)).join("")}</div>
+      <div class="step-row"><span class="step-badge">3</span><div><h3>¿Lo enviarías ahora mismo?</h3><p>Haz una valoración rápida y explica por qué. No buscamos la respuesta «correcta»; buscamos que dejes constancia de tu criterio inicial.</p></div></div>
+      <div class="choice-row">
+        <button class="choice \${a.sendNow === "si" ? "selected" : ""}" data-b1-send="si" type="button" \${complete ? "disabled" : ""}>Sí, lo enviaría</button>
+        <button class="choice \${a.sendNow === "no" ? "selected" : ""}" data-b1-send="no" type="button" \${complete ? "disabled" : ""}>No, lo revisaría</button>
       </div>
-      ${complete ? "" : `<div class="btn-row"><button class="primary" id="finish-b1">Evaluar y cerrar bloque</button><span class="subtle">Debes haber probado los dos prompts en un LLM real.</span></div>`}
+      <textarea id="b1-reasons" class="answer-area compact-answer" placeholder="Escribe 2–3 motivos: qué te convence, qué te preocupa o qué comprobarías antes de enviarlo." \${complete ? "readonly" : ""}>\${escapeHTML(a.reasons || "")}</textarea>
+
+      \${complete ? "" : \`<div class="btn-row"><button class="primary" id="finish-b1">Guardar Versión 0 y seguir</button><span class="subtle">La Versión 0 quedará congelada para compararla con la entrega final.</span></div>\`}
     </section>
-    ${debriefPanel(1)}
-  `;
+    \${debriefPanel(1)}
+  \`;
 
   wireCopyButtons();
-  wireWordCounter("b1-initial-answer");
-  wireWordCounter("b1-improved-answer");
-
+  wireWordCounter("b1-answer");
   const persist = () => {
-    a.initial = document.querySelector("#b1-initial-answer").value;
-    a.improved = document.querySelector("#b1-improved-answer").value;
+    a.prompt = document.querySelector("#b1-prompt")?.value || a.prompt;
+    a.answer = document.querySelector("#b1-answer")?.value || a.answer;
+    a.reasons = document.querySelector("#b1-reasons")?.value || a.reasons;
     saveState();
   };
-  document.querySelector("#b1-initial-answer").addEventListener("change", persist);
-  document.querySelector("#b1-improved-answer").addEventListener("change", persist);
-  document.querySelectorAll("[data-b1-check]").forEach(box => box.addEventListener("change", () => {
-    const id = Number(box.dataset.b1Check);
-    a.checklist = toggleArray(a.checklist, id, box.checked);
-    saveState();
-  }));
-  document.querySelectorAll("[data-b1-component]").forEach(box => box.addEventListener("change", () => {
-    a.components = toggleArray(a.components, box.dataset.b1Component, box.checked);
+  document.querySelector("#b1-prompt")?.addEventListener("change", persist);
+  document.querySelector("#b1-answer")?.addEventListener("change", persist);
+  document.querySelector("#b1-reasons")?.addEventListener("change", persist);
+
+  document.querySelectorAll("[data-b1-send]").forEach(btn => btn.addEventListener("click", () => {
+    if (complete) return;
+    persist();
+    a.sendNow = btn.dataset.b1Send;
     saveState();
     renderBlock1();
   }));
 
   document.querySelector("#finish-b1")?.addEventListener("click", () => {
-    a.initial = document.querySelector("#b1-initial-answer").value.trim();
-    a.improved = document.querySelector("#b1-improved-answer").value.trim();
-    if (a.initial.length < 40 || a.improved.length < 40) return showToast("Faltan las dos respuestas del LLM. No se acepta telepatía.");
-    if (a.components.length < 3) return showToast("Añade al menos tres elementos al segundo prompt.");
-    const componentRaw = b.promptComponents.filter(c => a.components.includes(c.id)).reduce((s,c) => s + c.points, 0);
-    const componentScore = Math.round((componentRaw / 180) * 145);
-    const val = validateTextResponse(a.improved, { maxWords: 220, headings: ["Resumen","Hechos confirmados","Riesgos","Cuestiones pendientes","Fuentes"], citations: true });
-    const validationScore = Math.round((val.passed / val.total) * 35);
-    completeBlock(1, componentScore + validationScore);
+    persist();
+    a.prompt = a.prompt.trim();
+    a.answer = a.answer.trim();
+    a.reasons = a.reasons.trim();
+    if (a.prompt.length < 25) return showToast("Escribe el prompt que usarías realmente para resolver el encargo.");
+    if (a.answer.length < 60) return showToast("Necesitamos una primera respuesta real del LLM para conservarla como Versión 0.");
+    if (!a.sendNow) return showToast("Indica si enviarías esta primera versión tal como está.");
+    if (a.reasons.length < 30) return showToast("Explica brevemente por qué la enviarías o qué revisarías antes.");
+    completeBlock(1, BLOCK_MAX[1]);
   });
   wireDebrief(1);
 }
